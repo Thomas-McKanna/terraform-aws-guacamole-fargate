@@ -23,11 +23,16 @@ variable "private_subnets" {
 
 
 module "guacamole" {
-  source = "../guacamole-fargate"
+  source = "../"
 
   hosted_zone_name   = var.hosted_zone_name
   guacadmin_password = var.guacadmin_password
   certificate_arn    = var.certificate_arn
   public_subnets     = var.public_subnets
   private_subnets    = var.private_subnets
+}
+
+
+output "module_outputs" {
+  value = module.guacamole
 }
