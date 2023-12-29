@@ -73,4 +73,4 @@ No modules.
 
 | Name | Description |
 |------|-------------|
-| <a name="output_guacamole_url"></a> [guacamole\_url](#output\_guacamole\_url) | n/a |
+| <a name="output_guacamole_url"></a> [guacamole\_url](#output\_guacamole\_url) | URL of Guacamole instance |
