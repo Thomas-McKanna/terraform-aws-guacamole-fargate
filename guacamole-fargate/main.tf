@@ -84,8 +84,8 @@ resource "null_resource" "db_init" {
       ORIG_HASH="CA458A7D494E3BE824F5E1E175A1556C0F8EEF2C2D7DF3633BEC4A29C4411960" # guacadmin
       # Still using the original salt
       NEW_HASH=$(echo -n "${var.guacadmin_password}FE24ADC5E11E2B25288D1704ABE67A79E342ECC26064CE69C5B3177795A82264" | sha256sum | awk '{ print toupper($1) }')
-      sed -i 's/'"$ORIG_HASH"'/'"$NEW_HASH"'/g' /tmp/initdb.sql
       docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --postgresql > /tmp/initdb.sql
+      sed -i 's/'"$ORIG_HASH"'/'"$NEW_HASH"'/g' /tmp/initdb.sql
       aws rds-data execute-statement \
           --resource-arn "${aws_rds_cluster.guacamole_db.arn}" \
           --secret-arn "${aws_secretsmanager_secret.guacamole_db_credentials.arn}" \
