@@ -4,7 +4,7 @@ This Terraform module deploys an Apache Guacamole using all serverless component
 Fargate is used for Guacamole and Aurora is used for the database. The setup is
 configured to scale as usage increases.
 
-![Architecture Diagram](./diagram.png)
+<img src="./diagram.png" width="500" alt="Architecture Diagram">
 
 This module involves the use of a local provisioner to initialize the Guacamole databse.
 In order for this local provisioner to work, ensure you have the following tools installed
