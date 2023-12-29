@@ -4,6 +4,28 @@ This Terraform module deploys an Apache Guacamole using all serverless component
 Fargate is used for Guacamole and Aurora is used for the database. The setup is
 configured to scale as usage increases.
 
+This module involves the use of a local provisioner to initialize the Guacamole databse.
+In order for this local provisioner to work, ensure you have the following tools installed
+on your system:
+
+  - AWS CLI
+  - Docker
+  - sed
+  - awk
+  - sha256sum
+
+This module has was developed and tested on an Ubuntu system.
+
+## Remaining improvements
+
+  - Allow for passing in security group IDs to be applied to Fargate tasks so they
+    can communicate with remote resources
+  - Allow for setting subdomain (currently hardcoded to `guac`)
+  - Make subdomain optional
+  - Move to automated ACM certificate validation
+  - Allow for changing the Guacamole admin username
+  - Allow for setting the password SALT for the admin user
+  
 ## Requirements
 
 No requirements.
