@@ -15,11 +15,13 @@ variable "certificate_arn" {
 }
 
 variable "public_subnets" {
-  type = list(string)
+  description = "Subnets to place load balancer in"
+  type        = list(string)
 }
 
 variable "private_subnets" {
-  type = list(string)
+  description = "Subnets to place Fargate and Aurora in"
+  type        = list(string)
 }
 
 variable "db_skip_final_snapshot" {

@@ -1,17 +1,14 @@
 variable "hosted_zone_name" {
-  description = "Name of hosted zone to create DNS record in"
-  type        = string
+  type = string
 }
 
 variable "guacadmin_password" {
-  description = "Password for guacadmin user"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "certificate_arn" {
-  description = "Certificate to use for load balancer HTTPS"
-  type        = string
+  type = string
 }
 
 variable "public_subnets" {

@@ -1,9 +1,3 @@
-# Guacamole on Fargate Terraform Module #
-
-This Terraform module deploys an Apache Guacamole using all serverless components.
-Fargate is used for Guacamole and Aurora is used for the database. The setup is
-configured to scale as usage increases.
-
 ## Requirements
 
 No requirements.
