@@ -1,9 +1,9 @@
-# TODO: randomize names of resources; tagging
-
 locals {
   guac_container_name   = "guacamole"
   guacamole_db_name     = "guacamoledb"
   guacamole_db_username = "pgadmin"
+  fqdn                  = var.hosted_zone_name != "" ? (var.subdomain != "" ? "${var.subdomain}.${var.hosted_zone_name}" : "${var.hosted_zone_name}") : aws_lb.guacamole_lb.dns_name
+  guac_url              = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole"
 }
 
 data "aws_subnet" "temp" {
@@ -85,7 +85,7 @@ resource "null_resource" "db_init" {
       export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
       export DB_NAME="${local.guacamole_db_name}"
       export GUACADMIN_PASSWORD="${var.guacadmin_password}"
-      ./init_db.sh
+      ${path.module}/init_db.sh
     EOT
   }
 }
@@ -291,14 +291,16 @@ resource "aws_lb" "guacamole_lb" {
   enable_deletion_protection = false
 }
 
-# Look up hosted zone id by name
 data "aws_route53_zone" "zone" {
+  count = var.use_http_only ? 0 : 1
+
   name = var.hosted_zone_name
 }
 
-# DNS record
 resource "aws_route53_record" "guacamole" {
-  zone_id = data.aws_route53_zone.zone.zone_id
+  count = var.use_http_only ? 0 : 1
+
+  zone_id = data.aws_route53_zone.zone[0].zone_id
   name    = "guac.${var.hosted_zone_name}"
   type    = "A"
   alias {
@@ -308,8 +310,22 @@ resource "aws_route53_record" "guacamole" {
   }
 }
 
-
 resource "aws_lb_listener" "http" {
+  count = var.use_http_only ? 1 : 0
+
+  load_balancer_arn = aws_lb.guacamole_lb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.guacamole_tg.arn
+  }
+}
+
+resource "aws_lb_listener" "http_redirect" {
+  count = var.use_http_only ? 0 : 1
+
   load_balancer_arn = aws_lb.guacamole_lb.arn
   port              = 80
   protocol          = "HTTP"
@@ -324,12 +340,30 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+module "acm" {
+  count = var.use_http_only ? 0 : 1
+
+  source  = "terraform-aws-modules/acm/aws"
+  version = "5.0.0"
+
+  domain_name = var.hosted_zone_name
+  zone_id     = data.aws_route53_zone.zone[0].zone_id
+
+  validation_method = "DNS"
+
+  wait_for_validation = true
+
+  subject_alternative_names = [local.fqdn]
+}
+
 resource "aws_lb_listener" "https" {
+  count = var.use_http_only ? 0 : 1
+
   load_balancer_arn = aws_lb.guacamole_lb.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = module.acm[0].acm_certificate_arn
 
   default_action {
     type             = "forward"
@@ -338,7 +372,9 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_listener_rule" "redirect_root" {
-  listener_arn = aws_lb_listener.https.arn
+  count = var.use_http_only ? 0 : 1
+
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 100
 
   action {
@@ -392,6 +428,7 @@ resource "aws_security_group" "ecs_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
+  # Needed for fetching secrets from Secrets Manager and for accessing RDS
   egress {
     from_port   = 0
     to_port     = 0
@@ -422,7 +459,7 @@ resource "aws_ecs_service" "guacamole" {
 }
 
 resource "aws_appautoscaling_target" "guacamole_target" {
-  max_capacity       = 10
+  max_capacity       = var.maximum_guacamole_task_count
   min_capacity       = 1
   resource_id        = "service/${aws_ecs_cluster.fargate_cluster.name}/${aws_ecs_service.guacamole.name}"
   scalable_dimension = "ecs:service:DesiredCount"
