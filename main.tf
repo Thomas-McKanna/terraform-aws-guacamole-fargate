@@ -27,7 +27,7 @@ resource "aws_db_subnet_group" "guacamole" {
 resource "random_password" "guacamole_db_password" {
   length           = 16
   special          = true
-  override_special = "/_%@\" "
+  override_special = "$&!%"
 }
 
 data "aws_rds_engine_version" "postgresql" {
@@ -81,16 +81,11 @@ resource "null_resource" "db_init" {
 
   provisioner "local-exec" {
     command = <<EOT
-      ORIG_HASH="CA458A7D494E3BE824F5E1E175A1556C0F8EEF2C2D7DF3633BEC4A29C4411960" # guacadmin
-      # Still using the original salt
-      NEW_HASH=$(echo -n "${var.guacadmin_password}FE24ADC5E11E2B25288D1704ABE67A79E342ECC26064CE69C5B3177795A82264" | sha256sum | awk '{ print toupper($1) }')
-      docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --postgresql > /tmp/initdb.sql
-      sed -i 's/'"$ORIG_HASH"'/'"$NEW_HASH"'/g' /tmp/initdb.sql
-      aws rds-data execute-statement \
-          --resource-arn "${aws_rds_cluster.guacamole_db.arn}" \
-          --secret-arn "${aws_secretsmanager_secret.guacamole_db_credentials.arn}" \
-          --database "${local.guacamole_db_name}" \
-          --sql "file:///tmp/initdb.sql"
+      export DB_ARN="${aws_rds_cluster.guacamole_db.arn}"
+      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
+      export DB_NAME="${local.guacamole_db_name}"
+      export GUACADMIN_PASSWORD="${var.guacadmin_password}"
+      ./init_db.sh
     EOT
   }
 }
@@ -403,13 +398,6 @@ resource "aws_security_group" "ecs_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  egress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = data.aws_subnet.private_subnets.*.cidr_block
-  }
 }
 
 resource "aws_ecs_service" "guacamole" {
@@ -422,7 +410,7 @@ resource "aws_ecs_service" "guacamole" {
 
   network_configuration {
     subnets          = var.private_subnets
-    security_groups  = [aws_security_group.ecs_sg.id]
+    security_groups  = concat([aws_security_group.ecs_sg.id], var.guacamole_task_security_groups)
     assign_public_ip = false
   }
 

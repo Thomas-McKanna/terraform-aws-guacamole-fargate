@@ -12,13 +12,11 @@ variable "certificate_arn" {
 }
 
 variable "public_subnets" {
-  type    = list(string)
-  default = ["subnet-05ed260b806c51c03", "subnet-07a56032c0cd3304e"]
+  type = list(string)
 }
 
 variable "private_subnets" {
-  type    = list(string)
-  default = ["subnet-059c12c1b12de438b", "subnet-057ca27e4dcd0c326"]
+  type = list(string)
 }
 
 
