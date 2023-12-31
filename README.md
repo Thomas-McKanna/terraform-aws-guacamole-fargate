@@ -85,16 +85,16 @@ This module has was developed and tested on an Ubuntu system.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_db_skip_final_snapshot"></a> [db\_skip\_final\_snapshot](#input\_db\_skip\_final\_snapshot) | Whether to skip final snapshot when Aurora DB is destroyed | `bool` | `true` | no |
-| <a name="input_guac_image_uri"></a> [guac\_image\_uri](#input\_guac\_image\_uri) | ARN of custom Guacamole image to use. If not provided, will use latest version of guacamole/guacamole | `string` | `""` | no |
-| <a name="input_guacadmin_password"></a> [guacadmin\_password](#input\_guacadmin\_password) | Password for guacadmin user (a new random salt will be generated) | `string` | n/a | yes |
+| <a name="input_guac_image_uri"></a> [guac\_image\_uri](#input\_guac\_image\_uri) | ARN of custom Guacamole image to use. If not provided, will use latest version of `guacamole/guacamole`. | `string` | `""` | no |
+| <a name="input_guacadmin_password"></a> [guacadmin\_password](#input\_guacadmin\_password) | Password for guacadmin user (a new random salt will be generated). | `string` | n/a | yes |
 | <a name="input_guacamole_task_environment_vars"></a> [guacamole\_task\_environment\_vars](#input\_guacamole\_task\_environment\_vars) | Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`. | `list(map(string))` | `[]` | no |
-| <a name="input_guacamole_task_security_groups"></a> [guacamole\_task\_security\_groups](#input\_guacamole\_task\_security\_groups) | IDs of security groups to attach to Guacamole ECS task | `list(string)` | `[]` | no |
-| <a name="input_hosted_zone_name"></a> [hosted\_zone\_name](#input\_hosted\_zone\_name) | If provided, will create DNS record in this hosted zone for load balancer. This hosted zone name must be for the same zone as the certificate. | `string` | `""` | no |
-| <a name="input_maximum_guacamole_task_count"></a> [maximum\_guacamole\_task\_count](#input\_maximum\_guacamole\_task\_count) | Maximum number of Guacamole tasks to run at once | `number` | `10` | no |
-| <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | Subnets to place Fargate and Aurora in | `list(string)` | n/a | yes |
-| <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | Subnets to place load balancer in | `list(string)` | n/a | yes |
-| <a name="input_subdomain"></a> [subdomain](#input\_subdomain) | Subdomain within hosted zone to create DNS record for load balancer. | `string` | `""` | no |
-| <a name="input_use_http_only"></a> [use\_http\_only](#input\_use\_http\_only) | Whether to use HTTP only for load balancer (should just be for evaluating the module and automated tested) | `bool` | `false` | no |
+| <a name="input_guacamole_task_security_groups"></a> [guacamole\_task\_security\_groups](#input\_guacamole\_task\_security\_groups) | IDs of security groups to attach to Guacamole ECS task. | `list(string)` | `[]` | no |
+| <a name="input_hosted_zone_name"></a> [hosted\_zone\_name](#input\_hosted\_zone\_name) | If provided, will create DNS record in this hosted zone for load balancer. Not used if `use_http_only` is true. | `string` | `""` | no |
+| <a name="input_maximum_guacamole_task_count"></a> [maximum\_guacamole\_task\_count](#input\_maximum\_guacamole\_task\_count) | Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1. | `number` | `10` | no |
+| <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | Subnets to place Fargate and Aurora in. | `list(string)` | n/a | yes |
+| <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | Subnets to place load balancer in. | `list(string)` | n/a | yes |
+| <a name="input_subdomain"></a> [subdomain](#input\_subdomain) | Subdomain within hosted zone to create DNS record for load balancer. Not used if `use_http_only` is true. If not provided, Guacamole URL will be for base hosted zone. | `string` | `""` | no |
+| <a name="input_use_http_only"></a> [use\_http\_only](#input\_use\_http\_only) | Whether to use HTTP only for load balancer (should just be for evaluating the module and automated tested). | `bool` | `false` | no |
 
 ## Outputs
 

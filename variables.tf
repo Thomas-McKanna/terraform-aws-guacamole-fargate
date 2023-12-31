@@ -1,39 +1,39 @@
 variable "guacadmin_password" {
-  description = "Password for guacadmin user (a new random salt will be generated)"
+  description = "Password for guacadmin user (a new random salt will be generated)."
   type        = string
   sensitive   = true
 }
 
 variable "public_subnets" {
-  description = "Subnets to place load balancer in"
+  description = "Subnets to place load balancer in."
   type        = list(string)
 }
 
 variable "private_subnets" {
-  description = "Subnets to place Fargate and Aurora in"
+  description = "Subnets to place Fargate and Aurora in."
   type        = list(string)
 }
 
 variable "guacamole_task_security_groups" {
-  description = "IDs of security groups to attach to Guacamole ECS task"
+  description = "IDs of security groups to attach to Guacamole ECS task."
   type        = list(string)
   default     = []
 }
 
 variable "use_http_only" {
-  description = "Whether to use HTTP only for load balancer (should just be for evaluating the module and automated tested)"
+  description = "Whether to use HTTP only for load balancer (should just be for evaluating the module and automated tested)."
   type        = bool
   default     = false
 }
 
 variable "hosted_zone_name" {
-  description = "If provided, will create DNS record in this hosted zone for load balancer. This hosted zone name must be for the same zone as the certificate."
+  description = "If provided, will create DNS record in this hosted zone for load balancer. Not used if `use_http_only` is true."
   type        = string
   default     = ""
 }
 
 variable "subdomain" {
-  description = "Subdomain within hosted zone to create DNS record for load balancer."
+  description = "Subdomain within hosted zone to create DNS record for load balancer. Not used if `use_http_only` is true. If not provided, Guacamole URL will be for base hosted zone."
   type        = string
   default     = ""
 }
@@ -45,7 +45,7 @@ variable "db_skip_final_snapshot" {
 }
 
 variable "maximum_guacamole_task_count" {
-  description = "Maximum number of Guacamole tasks to run at once"
+  description = "Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1."
   type        = number
   default     = 10
 }
@@ -57,7 +57,7 @@ variable "guacamole_task_environment_vars" {
 }
 
 variable "guac_image_uri" {
-  description = "ARN of custom Guacamole image to use. If not provided, will use latest version of guacamole/guacamole"
+  description = "ARN of custom Guacamole image to use. If not provided, will use latest version of `guacamole/guacamole`."
   type        = string
   default     = ""
 }
