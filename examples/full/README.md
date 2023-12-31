@@ -22,3 +22,6 @@ Deployment steps:
   4. Run `terraform init && terraform apply`.
 
 You should now be able to access the Ubuntu instance through Guacamole.
+
+NOTE: sometimes the Guacamole connections fail to be created on the first attempt. Try
+running `terraform apply` again in this case.

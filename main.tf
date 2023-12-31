@@ -1,9 +1,22 @@
+terraform {
+  required_version = ">= 1.0.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">=5.0.0"
+    }
+  }
+}
+
 locals {
   guac_container_name   = "guacamole"
   guacamole_db_name     = "guacamoledb"
   guacamole_db_username = "pgadmin"
+  log_group             = "/ecs/guacamole-${random_password.random_id.result}"
   fqdn                  = var.hosted_zone_name != "" ? (var.subdomain != "" ? "${var.subdomain}.${var.hosted_zone_name}" : "${var.hosted_zone_name}") : aws_lb.guacamole_lb.dns_name
-  guac_url              = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole"
+  guac_url              = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole/" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole/"
+  guac_image            = var.guac_image_uri != "" ? var.guac_image_uri : "guacamole/guacamole"
+  ecr_repository_arn    = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
 }
 
 data "aws_subnet" "temp" {
@@ -19,8 +32,15 @@ data "aws_subnet" "private_subnets" {
   id    = var.private_subnets[count.index]
 }
 
+resource "random_password" "random_id" {
+  length  = 8
+  special = false
+  numeric = false
+  upper   = false
+}
+
 resource "aws_db_subnet_group" "guacamole" {
-  name       = "guacamole"
+  name       = "guacamole-db-subnet-group-${random_password.random_id.result}"
   subnet_ids = var.private_subnets
 }
 
@@ -36,7 +56,7 @@ data "aws_rds_engine_version" "postgresql" {
 }
 
 resource "aws_security_group" "rds_sg" {
-  name        = "rds-sg"
+  name        = "guacamole-db-sg-${random_password.random_id.result}"
   description = "Security group for RDS"
   vpc_id      = data.aws_vpc.this.id
 
@@ -56,7 +76,7 @@ resource "aws_security_group" "rds_sg" {
 }
 
 resource "aws_rds_cluster" "guacamole_db" {
-  cluster_identifier     = "guacamole-db"
+  cluster_identifier     = "guacamole-db-${random_password.random_id.result}"
   engine                 = "aurora-postgresql"
   db_subnet_group_name   = aws_db_subnet_group.guacamole.name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
@@ -91,7 +111,7 @@ resource "null_resource" "db_init" {
 }
 
 resource "aws_secretsmanager_secret" "guacamole_db_credentials" {
-  name                    = "guacamole-db-credentials"
+  name                    = "guacamole-db-credentials-${random_password.random_id.result}"
   recovery_window_in_days = 0
 }
 
@@ -104,7 +124,7 @@ resource "aws_secretsmanager_secret_version" "guacamole_db_credentials" {
 }
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "ecs_execution_role"
+  name = "ecs_execution_role_${random_password.random_id.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -125,13 +145,13 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_policy" "secret_access" {
-  name        = "SecretAccessPolicy"
-  description = "Policy to access secrets in Secrets Manager"
+resource "aws_iam_policy" "ecs_task_execution_policy" {
+  name        = "guacamole_ecs_execution_policy-${random_password.random_id.result}"
+  description = "Policy to access secrets in Secrets Manager and optionally custom Guacamole image in ECR"
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
+    Statement = concat([
       {
         Action = [
           "secretsmanager:GetSecretValue",
@@ -139,21 +159,31 @@ resource "aws_iam_policy" "secret_access" {
         ],
         Effect   = "Allow",
         Resource = aws_secretsmanager_secret.guacamole_db_credentials.arn
-      },
-    ],
+      }
+      ], var.guac_image_uri != "" ? [
+      {
+        Effect = "Allow",
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability"
+        ],
+        Resource = local.ecr_repository_arn
+      }
+    ] : [])
   })
 }
 
 resource "aws_iam_role_policy_attachment" "secret_access_attachment" {
   role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = aws_iam_policy.secret_access.arn
+  policy_arn = aws_iam_policy.ecs_task_execution_policy.arn
 }
 
 
 data "aws_region" "current" {}
 
 resource "aws_security_group" "alb_sg" {
-  name        = "alb-sg"
+  name        = "guacamole-alb-sg-${random_password.random_id.result}"
   description = "Security group for ALB"
   vpc_id      = data.aws_vpc.this.id
 
@@ -180,7 +210,7 @@ resource "aws_security_group" "alb_sg" {
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  name = "ecs_task_role"
+  name = "ecs_task_role_${random_password.random_id.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -202,7 +232,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_role_policy" {
 }
 
 resource "aws_ecs_task_definition" "guacamole" {
-  family                   = "guacamole"
+  family                   = "guacamole-task-${random_password.random_id.result}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
@@ -213,7 +243,7 @@ resource "aws_ecs_task_definition" "guacamole" {
   container_definitions = jsonencode([
     {
       name      = local.guac_container_name
-      image     = "guacamole/guacamole"
+      image     = local.guac_image
       essential = true
       portMappings = [
         {
@@ -221,7 +251,7 @@ resource "aws_ecs_task_definition" "guacamole" {
           hostPort      = 8080
         }
       ],
-      environment = [
+      environment = concat([
         {
           name  = "POSTGRESQL_HOSTNAME",
           value = aws_rds_cluster.guacamole_db.endpoint
@@ -238,7 +268,7 @@ resource "aws_ecs_task_definition" "guacamole" {
           name  = "GUACD_PORT",
           value = "4822"
         },
-      ],
+      ], var.guacamole_task_environment_vars),
       secrets = [
         {
           name      = "POSTGRESQL_USER",
@@ -252,7 +282,7 @@ resource "aws_ecs_task_definition" "guacamole" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          "awslogs-group"         = "/ecs/guacamole",
+          "awslogs-group"         = local.log_group,
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "guacamole"
         }
@@ -272,7 +302,7 @@ resource "aws_ecs_task_definition" "guacamole" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          "awslogs-group"         = "/ecs/guacamole",
+          "awslogs-group"         = local.log_group,
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "guacd"
         }
@@ -282,7 +312,7 @@ resource "aws_ecs_task_definition" "guacamole" {
 }
 
 resource "aws_lb" "guacamole_lb" {
-  name               = "guacamole-lb"
+  name               = "guacamole-lb-${random_password.random_id.result}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -395,7 +425,7 @@ resource "aws_lb_listener_rule" "redirect_root" {
 }
 
 resource "aws_lb_target_group" "guacamole_tg" {
-  name        = "guacamole-tg"
+  name        = "guacamole-tg-${random_password.random_id.result}"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.this.id
@@ -415,15 +445,15 @@ resource "aws_lb_target_group" "guacamole_tg" {
 }
 
 resource "aws_cloudwatch_log_group" "guacamole_log_group" {
-  name = "/ecs/guacamole"
+  name = local.log_group
 }
 
 resource "aws_ecs_cluster" "fargate_cluster" {
-  name = "guacamole"
+  name = "guacamole-cluster-${random_password.random_id.result}"
 }
 
 resource "aws_security_group" "ecs_sg" {
-  name        = "ecs-sg"
+  name        = "guacamole-ecs-sg-${random_password.random_id.result}"
   description = "Security group for ECS Tasks"
   vpc_id      = data.aws_vpc.this.id
 
@@ -445,14 +475,15 @@ resource "aws_security_group" "ecs_sg" {
 
 resource "aws_ecs_service" "guacamole" {
   depends_on      = [null_resource.db_init]
-  name            = "guacamole"
+  name            = "guacamole-service-${random_password.random_id.result}"
   cluster         = aws_ecs_cluster.fargate_cluster.id
   task_definition = aws_ecs_task_definition.guacamole.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = var.private_subnets
+    # TODO: choose just first subnet so that Guac operates in a single AZ
+    subnets          = var.private_subnets # [var.private_subnets[0]]
     security_groups  = concat([aws_security_group.ecs_sg.id], var.guacamole_task_security_groups)
     assign_public_ip = false
   }
@@ -473,7 +504,7 @@ resource "aws_appautoscaling_target" "guacamole_target" {
 }
 
 resource "aws_appautoscaling_policy" "guacamole_policy" {
-  name               = "guacamole_policy"
+  name               = "guacamole_autoscaling_policy_${random_password.random_id.result}"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.guacamole_target.resource_id
   scalable_dimension = aws_appautoscaling_target.guacamole_target.scalable_dimension

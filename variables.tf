@@ -1,5 +1,5 @@
 variable "guacadmin_password" {
-  description = "Password for guacadmin user"
+  description = "Password for guacadmin user (a new random salt will be generated)"
   type        = string
   sensitive   = true
 }
@@ -48,4 +48,16 @@ variable "maximum_guacamole_task_count" {
   description = "Maximum number of Guacamole tasks to run at once"
   type        = number
   default     = 10
+}
+
+variable "guacamole_task_environment_vars" {
+  description = "Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`."
+  type        = list(map(string))
+  default     = []
+}
+
+variable "guac_image_uri" {
+  description = "ARN of custom Guacamole image to use. If not provided, will use latest version of guacamole/guacamole"
+  type        = string
+  default     = ""
 }

@@ -2,7 +2,7 @@ module "guacamole" {
   source = "../../"
 
   subdomain                      = "guac"
-  hosted_zone_name               = "YOURDOMAIN.COM"
+  hosted_zone_name               = "YOURHOSTEDZONE.COM"
   guacadmin_password             = "gu4c4m0l3" # For testing purposes only
   public_subnets                 = module.vpc.public_subnets
   private_subnets                = module.vpc.private_subnets
@@ -57,8 +57,12 @@ resource "aws_security_group" "guacamole" {
 #   }
 # }
 
+# locals {
+#   ubuntu_count = 3
+# }
+
 # provider "guacamole" {
-#   url                      = "https://guac.YOURDOMAIN.COM/guacamole"
+#   url                      = "https://guac.YOURHOSTEDZONE.COM/guacamole"
 #   username                 = "guacadmin"
 #   password                 = "gu4c4m0l3" # For testing purposes only
 #   disable_tls_verification = true
@@ -78,12 +82,14 @@ resource "aws_security_group" "guacamole" {
 # }
 
 # resource "tls_private_key" "ubuntu" {
+#   count     = local.ubuntu_count
 #   algorithm = "RSA"
 #   rsa_bits  = 4096
 # }
 
 # resource "aws_key_pair" "ubuntu" {
-#   public_key = tls_private_key.ubuntu.public_key_openssh
+#   count      = local.ubuntu_count
+#   public_key = tls_private_key.ubuntu[count.index].public_key_openssh
 # }
 
 # resource "aws_security_group" "ubuntu" {
@@ -100,10 +106,11 @@ resource "aws_security_group" "guacamole" {
 # }
 
 # resource "aws_instance" "ubuntu" {
+#   count         = local.ubuntu_count
 #   ami           = data.aws_ami.ubuntu.id
 #   instance_type = "t2.small"
-#   key_name      = aws_key_pair.ubuntu.key_name
-#   subnet_id     = module.vpc.private_subnets[0]
+#   key_name      = aws_key_pair.ubuntu[count.index].key_name
+#   subnet_id     = module.vpc.private_subnets[count.index % length(module.vpc.private_subnets)]
 #   vpc_security_group_ids = [
 #     aws_security_group.guacamole.id,
 #     aws_security_group.ubuntu.id
@@ -115,14 +122,15 @@ resource "aws_security_group" "guacamole" {
 # }
 
 # resource "guacamole_connection_ssh" "ubuntu" {
+#   count             = local.ubuntu_count
 #   depends_on        = [module.guacamole]
-#   name              = "Ubuntu Test"
+#   name              = "Ubuntu Test - ${count.index}"
 #   parent_identifier = "ROOT"
 
 #   parameters {
-#     hostname     = aws_instance.ubuntu.private_ip
+#     hostname     = aws_instance.ubuntu[count.index].private_ip
 #     username     = "ubuntu"
-#     private_key  = tls_private_key.ubuntu.private_key_openssh
+#     private_key  = tls_private_key.ubuntu[count.index].private_key_openssh
 #     port         = 22
 #     disable_copy = true
 #     color_scheme = "green-black"
