@@ -207,8 +207,8 @@ resource "aws_ecs_task_definition" "guacamole" {
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = 1024
+  memory                   = 2048
 
   container_definitions = jsonencode([
     {
@@ -301,7 +301,7 @@ resource "aws_route53_record" "guacamole" {
   count = var.use_http_only ? 0 : 1
 
   zone_id = data.aws_route53_zone.zone[0].zone_id
-  name    = "guac.${var.hosted_zone_name}"
+  name    = local.fqdn
   type    = "A"
   alias {
     name                   = aws_lb.guacamole_lb.dns_name
@@ -405,6 +405,12 @@ resource "aws_lb_target_group" "guacamole_tg" {
     type            = "lb_cookie"
     enabled         = true
     cookie_duration = 86400 # 86400 seconds = 1 day.
+  }
+
+  health_check {
+    path     = "/guacamole/"
+    port     = 8080
+    protocol = "HTTP"
   }
 }
 

@@ -1,8 +1,8 @@
 module "guacamole" {
   source = "../../"
 
-  subdomain                      = "guacamole"
-  hosted_zone_name               = "tjmsandbox.com"
+  subdomain                      = "guac"
+  hosted_zone_name               = "YOURDOMAIN.COM"
   guacadmin_password             = "gu4c4m0l3" # For testing purposes only
   public_subnets                 = module.vpc.public_subnets
   private_subnets                = module.vpc.private_subnets
@@ -58,9 +58,10 @@ resource "aws_security_group" "guacamole" {
 # }
 
 # provider "guacamole" {
-#   url      = "https://guac.tjmsandbox.com"
-#   username = "guacadmin"
-#   password = "gu4c4m0l3" # For testing purposes only
+#   url                      = "https://guac.YOURDOMAIN.COM/guacamole"
+#   username                 = "guacadmin"
+#   password                 = "gu4c4m0l3" # For testing purposes only
+#   disable_tls_verification = true
 # }
 
 # data "aws_ami" "ubuntu" {
@@ -114,11 +115,12 @@ resource "aws_security_group" "guacamole" {
 # }
 
 # resource "guacamole_connection_ssh" "ubuntu" {
+#   depends_on        = [module.guacamole]
 #   name              = "Ubuntu Test"
 #   parent_identifier = "ROOT"
 
 #   parameters {
-#     hostname     = aws_instance.ubuntu.public_ip
+#     hostname     = aws_instance.ubuntu.private_ip
 #     username     = "ubuntu"
 #     private_key  = tls_private_key.ubuntu.private_key_openssh
 #     port         = 22
