@@ -36,3 +36,5 @@ terraform.rc
 .terraform/
 
 .terraform.lock.hcl
+
+other.md
