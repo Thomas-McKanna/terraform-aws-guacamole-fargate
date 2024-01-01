@@ -473,6 +473,20 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
+resource "aws_security_group" "guacamole" {
+  name        = "guacamole-and-servers-communication-sg-${random_password.random_id.result}"
+  description = "Allow all traffic between Guacamole and anything that has this security group attached"
+  vpc_id      = data.aws_vpc.this.id
+
+  ingress {
+    description = "Allow all traffic between security group members"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+}
+
 resource "aws_ecs_service" "guacamole" {
   depends_on      = [null_resource.db_init]
   name            = "guacamole-service-${random_password.random_id.result}"
@@ -484,8 +498,12 @@ resource "aws_ecs_service" "guacamole" {
   network_configuration {
     # TODO: choose just first subnet so that Guac operates in a single AZ
     subnets          = var.private_subnets # [var.private_subnets[0]]
-    security_groups  = concat([aws_security_group.ecs_sg.id], var.guacamole_task_security_groups)
     assign_public_ip = false
+
+    security_groups = concat([
+      aws_security_group.ecs_sg.id,
+      aws_security_group.guacamole.id],
+    var.guacamole_task_security_groups)
   }
 
   load_balancer {

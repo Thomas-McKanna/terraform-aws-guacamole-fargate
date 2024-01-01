@@ -1,14 +1,12 @@
 module "guacamole" {
   source = "../../"
 
-  subdomain                      = "guac"
-  hosted_zone_name               = "YOURHOSTEDZONE.COM"
-  guacadmin_password             = "gu4c4m0l3" # For testing purposes only
-  public_subnets                 = module.vpc.public_subnets
-  private_subnets                = module.vpc.private_subnets
-  guacamole_task_security_groups = [aws_security_group.guacamole.id]
+  subdomain          = "guac"
+  hosted_zone_name   = "YOURHOSTEDZONE.COM"
+  guacadmin_password = "gu4c4m0l3" # For testing purposes only
+  public_subnets     = module.vpc.public_subnets
+  private_subnets    = module.vpc.private_subnets
 }
-
 
 output "module_outputs" {
   value = module.guacamole
@@ -28,20 +26,6 @@ module "vpc" {
 
   enable_nat_gateway = true
   single_nat_gateway = true
-}
-
-resource "aws_security_group" "guacamole" {
-  name        = "guacamole-to-servers"
-  description = "Allow all traffic between Guacamole and Ubuntu instances"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress {
-    description = "Allow all traffic from Guacamole to Ubuntu"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    self        = true
-  }
 }
 
 #######################################################################################
@@ -112,7 +96,7 @@ resource "aws_security_group" "guacamole" {
 #   key_name      = aws_key_pair.ubuntu[count.index].key_name
 #   subnet_id     = module.vpc.private_subnets[count.index % length(module.vpc.private_subnets)]
 #   vpc_security_group_ids = [
-#     aws_security_group.guacamole.id,
+#     module.guacamole.guacamole_sg_id,
 #     aws_security_group.ubuntu.id
 #   ]
 
