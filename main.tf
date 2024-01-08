@@ -312,11 +312,12 @@ resource "aws_ecs_task_definition" "guacamole" {
 }
 
 resource "aws_lb" "guacamole_lb" {
-  name               = "guacamole-lb-${random_password.random_id.result}"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = var.public_subnets
+  name                       = "guacamole-lb-${random_password.random_id.result}"
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.alb_sg.id]
+  subnets                    = var.public_subnets
+  drop_invalid_header_fields = true
 
   enable_deletion_protection = false
 }
@@ -450,6 +451,11 @@ resource "aws_cloudwatch_log_group" "guacamole_log_group" {
 
 resource "aws_ecs_cluster" "fargate_cluster" {
   name = "guacamole-cluster-${random_password.random_id.result}"
+
+  setting {
+    name  = "containerInsights"
+    value = var.enable_cloudwatch_insights ? "enabled" : "disabled"
+  }
 }
 
 resource "aws_security_group" "ecs_sg" {

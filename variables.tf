@@ -61,3 +61,9 @@ variable "guac_image_uri" {
   type        = string
   default     = ""
 }
+
+variable "enable_cloudwatch_insights" {
+  description = "Whether to enable CloudWatch Insights for Guacamole ECS cluster."
+  type        = bool
+  default     = false
+}
