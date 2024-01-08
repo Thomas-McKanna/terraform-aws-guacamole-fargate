@@ -86,6 +86,7 @@ This module has was developed and tested on an Ubuntu system.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_db_skip_final_snapshot"></a> [db\_skip\_final\_snapshot](#input\_db\_skip\_final\_snapshot) | Whether to skip final snapshot when Aurora DB is destroyed | `bool` | `true` | no |
+| <a name="input_enable_cloudwatch_insights"></a> [enable\_cloudwatch\_insights](#input\_enable\_cloudwatch\_insights) | Whether to enable CloudWatch Insights for Guacamole ECS cluster. | `bool` | `false` | no |
 | <a name="input_guac_image_uri"></a> [guac\_image\_uri](#input\_guac\_image\_uri) | ARN of custom Guacamole image to use. If not provided, will use latest version of `guacamole/guacamole`. | `string` | `""` | no |
 | <a name="input_guacadmin_password"></a> [guacadmin\_password](#input\_guacadmin\_password) | Password for guacadmin user (a new random salt will be generated). | `string` | n/a | yes |
 | <a name="input_guacamole_task_environment_vars"></a> [guacamole\_task\_environment\_vars](#input\_guacamole\_task\_environment\_vars) | Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`. | `list(map(string))` | `[]` | no |
