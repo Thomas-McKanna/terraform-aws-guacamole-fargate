@@ -39,7 +39,7 @@ variable "subdomain" {
 }
 
 variable "db_skip_final_snapshot" {
-  description = "Whether to skip final snapshot when Aurora DB is destroyed"
+  description = "Whether to skip final snapshot when Aurora DB is destroyed."
   type        = bool
   default     = true
 }
@@ -66,4 +66,22 @@ variable "enable_cloudwatch_insights" {
   description = "Whether to enable CloudWatch Insights for Guacamole ECS cluster."
   type        = bool
   default     = false
+}
+
+variable "enable_session_recording" {
+  description = "If true, sessions will be recorded and stored in an AWS Elastic File System (EFS) instance."
+  type        = bool
+  default     = false
+}
+
+variable "enable_execute_command" {
+  description = "If true, will enable the use of execute_command on the ECS tasks (useful for debugging)."
+  type        = bool
+  default     = false
+}
+
+variable "log_level" {
+  description = "Log level for Guacamole."
+  type        = string
+  default     = "info"
 }

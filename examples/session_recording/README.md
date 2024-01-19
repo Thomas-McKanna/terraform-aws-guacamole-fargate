@@ -1,0 +1,3 @@
+# Guacamole Session Recording
+
+TODO

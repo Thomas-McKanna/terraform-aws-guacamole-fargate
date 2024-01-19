@@ -9,14 +9,30 @@ terraform {
 }
 
 locals {
-  guac_container_name   = "guacamole"
-  guacamole_db_name     = "guacamoledb"
-  guacamole_db_username = "pgadmin"
-  log_group             = "/ecs/guacamole-${random_password.random_id.result}"
-  fqdn                  = var.hosted_zone_name != "" ? (var.subdomain != "" ? "${var.subdomain}.${var.hosted_zone_name}" : "${var.hosted_zone_name}") : aws_lb.guacamole_lb.dns_name
-  guac_url              = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole/" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole/"
-  guac_image            = var.guac_image_uri != "" ? var.guac_image_uri : "guacamole/guacamole"
-  ecr_repository_arn    = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
+  guac_container_name    = "guacamole"
+  guacamole_db_name      = "guacamoledb"
+  guacamole_db_username  = "pgadmin"
+  session_recording_path = "/var/lib/guacamole/recordings" # This is the Guac default
+  log_group              = "/ecs/guacamole-${random_password.random_id.result}"
+  fqdn                   = var.hosted_zone_name != "" ? (var.subdomain != "" ? "${var.subdomain}.${var.hosted_zone_name}" : "${var.hosted_zone_name}") : aws_lb.guacamole_lb.dns_name
+  guac_url               = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole/" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole/"
+  guac_image             = var.guac_image_uri != "" ? var.guac_image_uri : "guacamole/guacamole"
+  ecr_repository_arn     = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
+
+  session_recording_env = var.enable_session_recording ? [
+    {
+      name  = "GUACAMOLE_RECORDING_PATH"
+      value = local.session_recording_path
+    }
+  ] : []
+
+  mount_points = var.enable_session_recording ? [
+    {
+      sourceVolume  = "efs_volume",
+      containerPath = local.session_recording_path,
+      readOnly      = false
+    }
+  ] : []
 }
 
 data "aws_subnet" "temp" {
@@ -145,6 +161,32 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_policy" "ecs_efs_access" {
+  count       = var.enable_session_recording ? 1 : 0
+  name        = "ecs_efs_access-${random_password.random_id.result}"
+  description = "Allow ECS tasks to access EFS"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite"
+        ],
+        Resource = aws_efs_file_system.guacamole_efs[0].arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_efs_access_attachment" {
+  count      = var.enable_session_recording ? 1 : 0
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = aws_iam_policy.ecs_efs_access[0].arn
+}
+
 resource "aws_iam_policy" "ecs_task_execution_policy" {
   name        = "guacamole_ecs_execution_policy-${random_password.random_id.result}"
   description = "Policy to access secrets in Secrets Manager and optionally custom Guacamole image in ECR"
@@ -240,7 +282,27 @@ resource "aws_ecs_task_definition" "guacamole" {
   cpu                      = 1024
   memory                   = 2048
 
+  dynamic "volume" {
+    for_each = var.enable_session_recording ? [1] : []
+    content {
+      name = "efs_volume"
+
+      efs_volume_configuration {
+        file_system_id     = aws_efs_file_system.guacamole_efs[0].id
+        root_directory     = "/"
+        transit_encryption = "ENABLED"
+      }
+    }
+  }
+
   container_definitions = jsonencode([
+    {
+      name        = "init-efs"
+      image       = "alpine:latest"
+      essential   = false
+      command     = ["/bin/sh", "-c", "chown -R 1000:1001 /var/lib/guacamole/recordings && chmod -R 750 /var/lib/guacamole/recordings"]
+      mountPoints = local.mount_points
+    },
     {
       name      = local.guac_container_name
       image     = local.guac_image
@@ -251,24 +313,32 @@ resource "aws_ecs_task_definition" "guacamole" {
           hostPort      = 8080
         }
       ],
-      environment = concat([
-        {
-          name  = "POSTGRESQL_HOSTNAME",
-          value = aws_rds_cluster.guacamole_db.endpoint
-        },
-        {
-          name  = "POSTGRESQL_DATABASE",
-          value = local.guacamole_db_name
-        },
-        {
-          name  = "GUACD_HOSTNAME",
-          value = "localhost"
-        },
-        {
-          name  = "GUACD_PORT",
-          value = "4822"
-        },
-      ], var.guacamole_task_environment_vars),
+      environment = concat(
+        local.session_recording_env,
+        var.guacamole_task_environment_vars,
+        [
+          {
+            name  = "POSTGRESQL_HOSTNAME",
+            value = aws_rds_cluster.guacamole_db.endpoint
+          },
+          {
+            name  = "POSTGRESQL_DATABASE",
+            value = local.guacamole_db_name
+          },
+          {
+            name  = "GUACD_HOSTNAME",
+            value = "localhost"
+          },
+          {
+            name  = "GUACD_PORT",
+            value = "4822"
+          },
+          {
+            name  = "GUACD_LOG_LEVEL",
+            value = var.log_level
+          },
+        ]
+      ),
       secrets = [
         {
           name      = "POSTGRESQL_USER",
@@ -286,7 +356,14 @@ resource "aws_ecs_task_definition" "guacamole" {
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "guacamole"
         }
-      }
+      },
+      mountPoints = local.mount_points,
+      dependsOn = [
+        {
+          containerName = "init-efs",
+          condition     = "SUCCESS"
+        }
+      ]
     },
     {
       name      = "guacd"
@@ -298,7 +375,16 @@ resource "aws_ecs_task_definition" "guacamole" {
           hostPort      = 4822
         }
       ],
-      volumesFrom = []
+      environment = concat(
+        local.session_recording_env,
+        var.guacamole_task_environment_vars,
+        [
+          {
+            name  = "GUACD_LOG_LEVEL",
+            value = var.log_level
+          }
+        ]
+      ),
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -306,7 +392,14 @@ resource "aws_ecs_task_definition" "guacamole" {
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "guacd"
         }
-      }
+      },
+      mountPoints = local.mount_points,
+      dependsOn = [
+        {
+          containerName = "init-efs",
+          condition     = "SUCCESS"
+        }
+      ]
     }
   ])
 }
@@ -470,6 +563,14 @@ resource "aws_security_group" "ecs_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
+  # EFS
+  ingress {
+    from_port = 2049
+    to_port   = 2049
+    protocol  = "tcp"
+    self      = true
+  }
+
   # Needed for fetching secrets from Secrets Manager and for accessing RDS
   egress {
     from_port   = 0
@@ -494,12 +595,13 @@ resource "aws_security_group" "guacamole" {
 }
 
 resource "aws_ecs_service" "guacamole" {
-  depends_on      = [null_resource.db_init]
-  name            = "guacamole-service-${random_password.random_id.result}"
-  cluster         = aws_ecs_cluster.fargate_cluster.id
-  task_definition = aws_ecs_task_definition.guacamole.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  depends_on             = [null_resource.db_init]
+  name                   = "guacamole-service-${random_password.random_id.result}"
+  cluster                = aws_ecs_cluster.fargate_cluster.id
+  task_definition        = aws_ecs_task_definition.guacamole.arn
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  enable_execute_command = var.enable_execute_command
 
   network_configuration {
     # TODO: choose just first subnet so that Guac operates in a single AZ
@@ -542,4 +644,20 @@ resource "aws_appautoscaling_policy" "guacamole_policy" {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
   }
+}
+
+resource "aws_efs_file_system" "guacamole_efs" {
+  count          = var.enable_session_recording ? 1 : 0
+  creation_token = "guacamole-efs-${random_password.random_id.result}"
+
+  tags = {
+    Name = "guacamole-efs-${random_password.random_id.result}"
+  }
+}
+
+resource "aws_efs_mount_target" "efs_mt" {
+  count           = var.enable_session_recording ? length(var.private_subnets) : 0
+  file_system_id  = aws_efs_file_system.guacamole_efs[0].id
+  subnet_id       = var.private_subnets[count.index]
+  security_groups = [aws_security_group.ecs_sg.id]
 }
