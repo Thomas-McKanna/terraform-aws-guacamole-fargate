@@ -20,10 +20,10 @@ output "module_outputs" {
 module "vpc" {
   version         = "5.1.2"
   source          = "terraform-aws-modules/vpc/aws"
-  cidr            = "10.10.0.0/16"
+  cidr            = "10.30.0.0/16"
   azs             = ["us-east-2a", "us-east-2b"]
-  public_subnets  = ["10.10.1.0/24", "10.10.2.0/24"]
-  private_subnets = ["10.10.101.0/24", "10.10.102.0/24"]
+  public_subnets  = ["10.30.1.0/24", "10.30.2.0/24"]
+  private_subnets = ["10.30.101.0/24", "10.30.102.0/24"]
 
   enable_nat_gateway = true
   single_nat_gateway = true

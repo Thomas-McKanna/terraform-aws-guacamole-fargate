@@ -21,7 +21,7 @@ locals {
 
   session_recording_env = var.enable_session_recording ? [
     {
-      name  = "GUACAMOLE_RECORDING_PATH"
+      name  = "RECORDING_SEARCH_PATH"
       value = local.session_recording_path
     }
   ] : []
@@ -300,7 +300,7 @@ resource "aws_ecs_task_definition" "guacamole" {
       name        = "init-efs"
       image       = "alpine:latest"
       essential   = false
-      command     = ["/bin/sh", "-c", "chown -R 1000:1001 /var/lib/guacamole/recordings && chmod -R 750 /var/lib/guacamole/recordings"]
+      command     = ["/bin/sh", "-c", "chown -R 1000:1001 ${local.session_recording_path} && chmod 2750 ${local.session_recording_path}"]
       mountPoints = local.mount_points
     },
     {
