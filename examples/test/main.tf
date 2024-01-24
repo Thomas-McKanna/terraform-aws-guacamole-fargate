@@ -5,6 +5,7 @@ module "guacamole" {
   public_subnets     = module.vpc.public_subnets
   private_subnets    = module.vpc.private_subnets
   use_http_only      = true # Should set to false for any real deployment
+  enable_alb_logging = true
 }
 
 output "module_outputs" {

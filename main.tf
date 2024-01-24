@@ -33,6 +33,114 @@ locals {
       readOnly      = false
     }
   ] : []
+
+  depends_on = var.enable_session_recording ? [
+    {
+      containerName = "init-efs",
+      condition     = "SUCCESS"
+    }
+  ] : []
+
+  init_container_def = var.enable_session_recording ? [
+    {
+      name        = "init-efs"
+      image       = "alpine:latest"
+      essential   = false
+      command     = ["/bin/sh", "-c", "chown -R 1000:1001 ${local.session_recording_path} && chmod 2750 ${local.session_recording_path}"]
+      mountPoints = local.mount_points
+    }
+  ] : []
+
+  container_defs = [
+    {
+      name      = local.guac_container_name
+      image     = local.guac_image
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8080,
+          hostPort      = 8080
+        }
+      ],
+      environment = concat(
+        local.session_recording_env,
+        var.guacamole_task_environment_vars,
+        [
+          {
+            name  = "POSTGRESQL_HOSTNAME",
+            value = aws_rds_cluster.guacamole_db.endpoint
+          },
+          {
+            name  = "POSTGRESQL_DATABASE",
+            value = local.guacamole_db_name
+          },
+          {
+            name  = "GUACD_HOSTNAME",
+            value = "localhost"
+          },
+          {
+            name  = "GUACD_PORT",
+            value = "4822"
+          },
+          {
+            name  = "GUACD_LOG_LEVEL",
+            value = var.log_level
+          },
+        ]
+      ),
+      secrets = [
+        {
+          name      = "POSTGRESQL_USER",
+          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:username::"
+        },
+        {
+          name      = "POSTGRESQL_PASSWORD",
+          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:password::"
+        }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = local.log_group,
+          "awslogs-region"        = data.aws_region.current.name,
+          "awslogs-stream-prefix" = "guacamole"
+        }
+      },
+      mountPoints = local.mount_points,
+      dependsOn   = local.depends_on
+    },
+    {
+      name      = "guacd"
+      image     = "guacamole/guacd"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 4822,
+          hostPort      = 4822
+        }
+      ],
+      environment = concat(
+        local.session_recording_env,
+        var.guacamole_task_environment_vars,
+        [
+          {
+            name  = "GUACD_LOG_LEVEL",
+            value = var.log_level
+          }
+        ]
+      ),
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = local.log_group,
+          "awslogs-region"        = data.aws_region.current.name,
+          "awslogs-stream-prefix" = "guacd"
+        }
+      },
+      mountPoints = local.mount_points,
+      dependsOn   = local.depends_on
+    }
+  ]
 }
 
 data "aws_subnet" "temp" {
@@ -295,113 +403,7 @@ resource "aws_ecs_task_definition" "guacamole" {
     }
   }
 
-  container_definitions = jsonencode([
-    {
-      name        = "init-efs"
-      image       = "alpine:latest"
-      essential   = false
-      command     = ["/bin/sh", "-c", "chown -R 1000:1001 ${local.session_recording_path} && chmod 2750 ${local.session_recording_path}"]
-      mountPoints = local.mount_points
-    },
-    {
-      name      = local.guac_container_name
-      image     = local.guac_image
-      essential = true
-      portMappings = [
-        {
-          containerPort = 8080,
-          hostPort      = 8080
-        }
-      ],
-      environment = concat(
-        local.session_recording_env,
-        var.guacamole_task_environment_vars,
-        [
-          {
-            name  = "POSTGRESQL_HOSTNAME",
-            value = aws_rds_cluster.guacamole_db.endpoint
-          },
-          {
-            name  = "POSTGRESQL_DATABASE",
-            value = local.guacamole_db_name
-          },
-          {
-            name  = "GUACD_HOSTNAME",
-            value = "localhost"
-          },
-          {
-            name  = "GUACD_PORT",
-            value = "4822"
-          },
-          {
-            name  = "GUACD_LOG_LEVEL",
-            value = var.log_level
-          },
-        ]
-      ),
-      secrets = [
-        {
-          name      = "POSTGRESQL_USER",
-          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:username::"
-        },
-        {
-          name      = "POSTGRESQL_PASSWORD",
-          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:password::"
-        }
-      ],
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          "awslogs-group"         = local.log_group,
-          "awslogs-region"        = data.aws_region.current.name,
-          "awslogs-stream-prefix" = "guacamole"
-        }
-      },
-      mountPoints = local.mount_points,
-      dependsOn = [
-        {
-          containerName = "init-efs",
-          condition     = "SUCCESS"
-        }
-      ]
-    },
-    {
-      name      = "guacd"
-      image     = "guacamole/guacd"
-      essential = true
-      portMappings = [
-        {
-          containerPort = 4822,
-          hostPort      = 4822
-        }
-      ],
-      environment = concat(
-        local.session_recording_env,
-        var.guacamole_task_environment_vars,
-        [
-          {
-            name  = "GUACD_LOG_LEVEL",
-            value = var.log_level
-          }
-        ]
-      ),
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          "awslogs-group"         = local.log_group,
-          "awslogs-region"        = data.aws_region.current.name,
-          "awslogs-stream-prefix" = "guacd"
-        }
-      },
-      mountPoints = local.mount_points,
-      dependsOn = [
-        {
-          containerName = "init-efs",
-          condition     = "SUCCESS"
-        }
-      ]
-    }
-  ])
+  container_definitions = jsonencode(concat(local.init_container_def, local.container_defs))
 }
 
 resource "aws_lb" "guacamole_lb" {
@@ -413,7 +415,46 @@ resource "aws_lb" "guacamole_lb" {
   drop_invalid_header_fields = true
 
   enable_deletion_protection = false
+
+  dynamic "access_logs" {
+    for_each = var.enable_alb_logging ? [1] : []
+    content {
+      bucket  = aws_s3_bucket.alb_logging[0].bucket
+      prefix  = "alb-logs"
+      enabled = true
+    }
+  }
 }
+
+resource "aws_s3_bucket" "alb_logging" {
+  count = var.enable_alb_logging ? 1 : 0
+
+  bucket        = "guacamole-alb-logging-${random_password.random_id.result}"
+  force_destroy = true
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket_policy" "alb_logging_policy" {
+  count  = var.enable_alb_logging ? 1 : 0
+  bucket = aws_s3_bucket.alb_logging[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::033677994240:root"
+        }
+        Action   = "s3:PutObject"
+        Resource = "arn:aws:s3:::${aws_s3_bucket.alb_logging[0].bucket}/alb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      }
+    ]
+  })
+}
+
+
 
 data "aws_route53_zone" "zone" {
   count = var.use_http_only ? 0 : 1

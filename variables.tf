@@ -97,3 +97,9 @@ variable "seconds_until_auto_pause" {
   type        = number
   default     = 300
 }
+
+variable "enable_alb_logging" {
+  description = "Whether to enable logging for the ALB."
+  type        = bool
+  default     = false
+}
