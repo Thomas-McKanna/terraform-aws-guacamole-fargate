@@ -105,10 +105,10 @@ resource "aws_rds_cluster" "guacamole_db" {
   engine_mode          = "serverless"
   enable_http_endpoint = true
   scaling_configuration {
-    auto_pause               = true
+    auto_pause               = var.auto_pause_database
     min_capacity             = 2
     max_capacity             = 32
-    seconds_until_auto_pause = 300
+    seconds_until_auto_pause = var.seconds_until_auto_pause
   }
 }
 
