@@ -690,6 +690,7 @@ resource "aws_appautoscaling_policy" "guacamole_policy" {
 resource "aws_efs_file_system" "guacamole_efs" {
   count          = var.enable_session_recording ? 1 : 0
   creation_token = "guacamole-efs-${random_password.random_id.result}"
+  encrypted      = true
 
   tags = {
     Name = "guacamole-efs-${random_password.random_id.result}"
