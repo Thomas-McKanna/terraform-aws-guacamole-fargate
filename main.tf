@@ -703,3 +703,96 @@ resource "aws_efs_mount_target" "efs_mt" {
   subnet_id       = var.private_subnets[count.index]
   security_groups = [aws_security_group.ecs_sg.id]
 }
+
+resource "aws_wafv2_ip_set" "allowlist" {
+  count = var.enable_brute_force_protection && var.brute_force_allow_list != [] ? 1 : 0
+
+  name               = "guac-ip-allowlist-${random_password.random_id.result}"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV4"
+  addresses          = var.brute_force_allow_list
+}
+
+resource "aws_wafv2_web_acl" "example" {
+  count = var.enable_brute_force_protection ? 1 : 0
+
+  name        = "guac-acl-${random_password.random_id.result}"
+  scope       = "REGIONAL"
+  description = "ACL for brute-force login attempts mitigation"
+
+  default_action {
+    allow {}
+  }
+
+  dynamic "rule" {
+    for_each = length(var.brute_force_allow_list) > 0 ? [1] : []
+    content {
+      name     = "IPAllowlist"
+      priority = 0
+
+      action {
+        allow {}
+      }
+
+      statement {
+        ip_set_reference_statement {
+          arn = aws_wafv2_ip_set.allowlist[0].arn
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "GuacIPAllowlist-${random_password.random_id.result}"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  rule {
+    name     = "RateLimit"
+    priority = 1
+
+    action {
+      block {}
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "GuacRateLimit-${random_password.random_id.result}"
+      sampled_requests_enabled   = true
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 100 # Set the rate limit to 100 requests per 5 minutes
+        aggregate_key_type = "IP"
+        scope_down_statement {
+          byte_match_statement {
+            field_to_match {
+              uri_path {}
+            }
+            positional_constraint = "ENDS_WITH"
+            search_string         = "/api/tokens"
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "GuacAcl-${random_password.random_id.result}"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "load_balancer" {
+  count = var.enable_brute_force_protection ? 1 : 0
+
+  resource_arn = aws_lb.guacamole_lb.arn
+  web_acl_arn  = aws_wafv2_web_acl.example[0].arn
+}

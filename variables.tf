@@ -103,3 +103,15 @@ variable "enable_alb_logging" {
   type        = bool
   default     = false
 }
+
+variable "enable_brute_force_protection" {
+  description = "If enabled, will create Web Application Firewall (WAF) rules to block brute force attacks."
+  type        = bool
+  default     = true
+}
+
+variable "brute_force_allow_list" {
+  description = "List of CIDRs to always allow through WAF. If a single IP, write like `1.2.3.4/32`."
+  type        = list(string)
+  default     = []
+}
