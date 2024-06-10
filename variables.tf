@@ -115,3 +115,9 @@ variable "brute_force_allow_list" {
   type        = list(string)
   default     = []
 }
+
+variable "efs_tags" {
+  description = "Tags to apply to EFS instance."
+  type        = map(string)
+  default     = {}
+}

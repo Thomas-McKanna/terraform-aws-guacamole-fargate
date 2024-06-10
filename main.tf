@@ -692,9 +692,12 @@ resource "aws_efs_file_system" "guacamole_efs" {
   creation_token = "guacamole-efs-${random_password.random_id.result}"
   encrypted      = true
 
-  tags = {
-    Name = "guacamole-efs-${random_password.random_id.result}"
-  }
+  tags = merge(
+    {
+      Name = "guacamole-efs-${random_password.random_id.result}"
+    },
+    var.efs_tags
+  )
 }
 
 resource "aws_efs_mount_target" "efs_mt" {
