@@ -3,9 +3,9 @@ output "guacamole_url" {
   description = "URL of Guacamole instance"
 }
 
-output "guacamole_sg_id" {
-  value       = aws_security_group.guacamole.id
-  description = "ID of security group which allows communication with Guacamole instance"
+output "allow_guacamole_sg_id" {
+  value       = aws_security_group.allow_guacamole_connection.id
+  description = "ID of security group which allows Guacamole to connect to remote resources. Apply this to remote resources."
 }
 
 output "alb_logging_bucket" {

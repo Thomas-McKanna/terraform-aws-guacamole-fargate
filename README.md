@@ -170,8 +170,9 @@ This module has was developed and tested on an Ubuntu system.
 | [aws_secretsmanager_secret.guacamole_db_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.guacamole_db_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_security_group.alb_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.allow_guacamole_connection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.ecs_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [aws_security_group.guacamole](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.guacamole_server](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.rds_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_wafv2_ip_set.allowlist](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
 | [aws_wafv2_web_acl.example](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl) | resource |
@@ -218,5 +219,5 @@ This module has was developed and tested on an Ubuntu system.
 | Name | Description |
 |------|-------------|
 | <a name="output_alb_logging_bucket"></a> [alb\_logging\_bucket](#output\_alb\_logging\_bucket) | Name of S3 bucket which stores ALB logs (requires setting enable\_alb\_logging to true) |
-| <a name="output_guacamole_sg_id"></a> [guacamole\_sg\_id](#output\_guacamole\_sg\_id) | ID of security group which allows communication with Guacamole instance |
+| <a name="output_allow_guacamole_sg_id"></a> [allow\_guacamole\_sg\_id](#output\_allow\_guacamole\_sg\_id) | ID of security group which allows Guacamole to connect to remote resources. Apply this to remote resources. |
 | <a name="output_guacamole_url"></a> [guacamole\_url](#output\_guacamole\_url) | URL of Guacamole instance |

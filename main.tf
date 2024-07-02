@@ -621,9 +621,15 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-resource "aws_security_group" "guacamole" {
-  name        = "guacamole-and-servers-communication-sg-${random_password.random_id.result}"
-  description = "Allow all traffic between Guacamole and anything that has this security group attached"
+resource "aws_security_group" "guacamole_server" {
+  name        = "guacamole-server-sg-${random_password.random_id.result}"
+  description = "Attached to Guacamole servers (used by allow-guacamole-sg)"
+  vpc_id      = data.aws_vpc.this.id
+}
+
+resource "aws_security_group" "allow_guacamole_connection" {
+  name        = "allow-guacamole-sg-${random_password.random_id.result}"
+  description = "Allow all traffic from Guacamole"
   vpc_id      = data.aws_vpc.this.id
 
   ingress {
@@ -631,7 +637,9 @@ resource "aws_security_group" "guacamole" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    self        = true
+    security_groups = [
+      aws_security_group.guacamole_server.id
+    ]
   }
 }
 
@@ -651,7 +659,7 @@ resource "aws_ecs_service" "guacamole" {
 
     security_groups = concat([
       aws_security_group.ecs_sg.id,
-      aws_security_group.guacamole.id],
+      aws_security_group.guacamole_server.id],
     var.guacamole_task_security_groups)
   }
 
