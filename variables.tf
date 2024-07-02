@@ -44,6 +44,12 @@ variable "db_skip_final_snapshot" {
   default     = true
 }
 
+variable "db_enable_deletion_protection" {
+  description = "Whether to enable deletion protection for Aurora DB."
+  type        = bool
+  default     = false
+}
+
 variable "maximum_guacamole_task_count" {
   description = "Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1."
   type        = number

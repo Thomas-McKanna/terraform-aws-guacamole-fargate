@@ -207,6 +207,7 @@ resource "aws_rds_cluster" "guacamole_db" {
   master_username        = local.guacamole_db_username
   master_password        = random_password.guacamole_db_password.result
   skip_final_snapshot    = var.db_skip_final_snapshot
+  deletion_protection    = var.db_enable_deletion_protection
 
   database_name = local.guacamole_db_name
 

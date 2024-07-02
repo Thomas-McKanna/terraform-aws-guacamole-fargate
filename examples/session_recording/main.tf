@@ -97,7 +97,7 @@ module "vpc" {
 #   key_name      = aws_key_pair.ubuntu[count.index].key_name
 #   subnet_id     = module.vpc.private_subnets[count.index % length(module.vpc.private_subnets)]
 #   vpc_security_group_ids = [
-#     module.guacamole.guacamole_sg_id,
+#     module.guacamole.allow_guacamole_sg_id,
 #     aws_security_group.ubuntu.id
 #   ]
 

@@ -194,6 +194,7 @@ This module has was developed and tested on an Ubuntu system.
 |------|-------------|------|---------|:--------:|
 | <a name="input_auto_pause_database"></a> [auto\_pause\_database](#input\_auto\_pause\_database) | Whether to automatically pause the database when not in use (this is a feature of Serverless RDS). | `bool` | `true` | no |
 | <a name="input_brute_force_allow_list"></a> [brute\_force\_allow\_list](#input\_brute\_force\_allow\_list) | List of CIDRs to always allow through WAF. If a single IP, write like `1.2.3.4/32`. | `list(string)` | `[]` | no |
+| <a name="input_db_enable_deletion_protection"></a> [db\_enable\_deletion\_protection](#input\_db\_enable\_deletion\_protection) | Whether to enable deletion protection for Aurora DB. | `bool` | `false` | no |
 | <a name="input_db_skip_final_snapshot"></a> [db\_skip\_final\_snapshot](#input\_db\_skip\_final\_snapshot) | Whether to skip final snapshot when Aurora DB is destroyed. | `bool` | `true` | no |
 | <a name="input_efs_tags"></a> [efs\_tags](#input\_efs\_tags) | Tags to apply to EFS instance. | `map(string)` | `{}` | no |
 | <a name="input_enable_alb_logging"></a> [enable\_alb\_logging](#input\_enable\_alb\_logging) | Whether to enable logging for the ALB. | `bool` | `false` | no |
