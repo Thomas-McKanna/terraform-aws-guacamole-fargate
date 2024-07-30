@@ -605,7 +605,21 @@ resource "aws_security_group" "ecs_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
-  # EFS
+  # Needed for fetching secrets from Secrets Manager and for accessing RDS
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "recordings_efs_access" {
+  count       = var.enable_session_recording ? 1 : 0
+  name        = "guacamole-efs-sg-${random_password.random_id.result}"
+  description = "Security group for EFS access"
+  vpc_id      = data.aws_vpc.this.id
+
   ingress {
     from_port = 2049
     to_port   = 2049
@@ -613,12 +627,11 @@ resource "aws_security_group" "ecs_sg" {
     self      = true
   }
 
-  # Needed for fetching secrets from Secrets Manager and for accessing RDS
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    self      = true
   }
 }
 
@@ -654,14 +667,15 @@ resource "aws_ecs_service" "guacamole" {
   enable_execute_command = var.enable_execute_command
 
   network_configuration {
-    # TODO: choose just first subnet so that Guac operates in a single AZ
-    subnets          = var.private_subnets # [var.private_subnets[0]]
+    # Choose just first subnet so that Guac operates in a single AZ
+    subnets          = [var.private_subnets[0]]
     assign_public_ip = false
 
     security_groups = concat([
       aws_security_group.ecs_sg.id,
       aws_security_group.guacamole_server.id],
-    var.guacamole_task_security_groups)
+      var.guacamole_task_security_groups,
+    var.enable_session_recording ? [aws_security_group.recordings_efs_access[0].id] : [])
   }
 
   load_balancer {
@@ -713,7 +727,7 @@ resource "aws_efs_mount_target" "efs_mt" {
   count           = var.enable_session_recording ? length(var.private_subnets) : 0
   file_system_id  = aws_efs_file_system.guacamole_efs[0].id
   subnet_id       = var.private_subnets[count.index]
-  security_groups = [aws_security_group.ecs_sg.id]
+  security_groups = [aws_security_group.recordings_efs_access[0].id]
 }
 
 resource "aws_wafv2_ip_set" "allowlist" {

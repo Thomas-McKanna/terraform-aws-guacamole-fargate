@@ -174,6 +174,7 @@ This module has was developed and tested on an Ubuntu system.
 | [aws_security_group.ecs_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.guacamole_server](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.rds_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.recordings_efs_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_wafv2_ip_set.allowlist](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
 | [aws_wafv2_web_acl.example](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl) | resource |
 | [aws_wafv2_web_acl_association.load_balancer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl_association) | resource |
@@ -222,3 +223,6 @@ This module has was developed and tested on an Ubuntu system.
 | <a name="output_alb_logging_bucket"></a> [alb\_logging\_bucket](#output\_alb\_logging\_bucket) | Name of S3 bucket which stores ALB logs (requires setting enable\_alb\_logging to true) |
 | <a name="output_allow_guacamole_sg_id"></a> [allow\_guacamole\_sg\_id](#output\_allow\_guacamole\_sg\_id) | ID of security group which allows Guacamole to connect to remote resources. Apply this to remote resources. |
 | <a name="output_guacamole_url"></a> [guacamole\_url](#output\_guacamole\_url) | URL of Guacamole instance |
+| <a name="output_recordings_efs_access_security_group_id"></a> [recordings\_efs\_access\_security\_group\_id](#output\_recordings\_efs\_access\_security\_group\_id) | ID of security group which allows Guacamole to access EFS file system for recordings (requires setting enable\_recording to true) |
+| <a name="output_recordings_efs_id"></a> [recordings\_efs\_id](#output\_recordings\_efs\_id) | ID of EFS file system which stores Guacamole recordings (requires setting enable\_recording to true) |
+<!-- END_TF_DOCS -->
