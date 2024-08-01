@@ -129,7 +129,7 @@ variable "efs_tags" {
 }
 
 variable "cors_allowed_origin" {
-  description = "Origin to allow for CORS requests. If not provided, will not set CORS header."
+  description = "Origin to allow for CORS requests to `/guacamole/api/tokens`. If not provided, will not set CORS header."
   type        = string
   default     = ""
 }
