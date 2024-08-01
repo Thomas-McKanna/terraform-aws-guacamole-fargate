@@ -18,6 +18,7 @@ locals {
   guac_url               = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole/" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole/"
   guac_image             = var.guac_image_uri != "" ? var.guac_image_uri : "guacamole/guacamole"
   ecr_repository_arn     = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
+  create_cors_lambda     = var.cors_allowed_origin != ""
 
   session_recording_env = var.enable_session_recording ? [
     {
@@ -537,6 +538,30 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+# Add a new listener rule for CORS handling
+resource "aws_lb_listener_rule" "cors_rule" {
+  count        = local.create_cors_lambda ? 1 : 0
+  listener_arn = var.use_http_only ? aws_lb_listener.http[0].arn : aws_lb_listener.https[0].arn
+  priority     = 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.lambda[0].arn
+  }
+
+  condition {
+    http_request_method {
+      values = ["OPTIONS"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/guacamole/api/tokens"]
+    }
+  }
+}
+
 resource "aws_lb_listener_rule" "redirect_root" {
   count = var.use_http_only ? 0 : 1
 
@@ -821,4 +846,89 @@ resource "aws_wafv2_web_acl_association" "load_balancer" {
 
   resource_arn = aws_lb.guacamole_lb.arn
   web_acl_arn  = aws_wafv2_web_acl.example[0].arn
+}
+
+resource "aws_lambda_function" "cors_handler" {
+  count         = local.create_cors_lambda ? 1 : 0
+  function_name = "guacamole-cors-handler-${random_password.random_id.result}"
+  role          = aws_iam_role.lambda_exec[0].arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.9"
+  filename      = data.archive_file.lambda_zip[0].output_path
+
+  environment {
+    variables = {
+      ALLOWED_ORIGIN = var.cors_allowed_origin
+    }
+  }
+
+  source_code_hash = data.archive_file.lambda_zip[0].output_base64sha256
+}
+
+data "archive_file" "lambda_zip" {
+  count       = local.create_cors_lambda ? 1 : 0
+  type        = "zip"
+  output_path = "${path.module}/cors_lambda_function_${random_password.random_id.result}.zip"
+
+  source {
+    content  = <<EOF
+import os
+
+def lambda_handler(event, context):
+    allowed_origin = os.environ['ALLOWED_ORIGIN']
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': allowed_origin,
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+        },
+        'body': ''
+    }
+EOF
+    filename = "lambda_function.py"
+  }
+}
+
+resource "aws_iam_role" "lambda_exec" {
+  count = local.create_cors_lambda ? 1 : 0
+  name  = "guacamole-lambda-exec-${random_password.random_id.result}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_exec_policy" {
+  count      = local.create_cors_lambda ? 1 : 0
+  role       = aws_iam_role.lambda_exec[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lb_target_group" "lambda" {
+  count       = local.create_cors_lambda ? 1 : 0
+  name        = "guacamole-lambda-tg-${random_password.random_id.result}"
+  target_type = "lambda"
+}
+
+resource "aws_lb_target_group_attachment" "lambda" {
+  count            = local.create_cors_lambda ? 1 : 0
+  target_group_arn = aws_lb_target_group.lambda[0].arn
+  target_id        = aws_lambda_function.cors_handler[0].arn
+}
+
+resource "aws_lambda_permission" "allow_alb" {
+  count         = local.create_cors_lambda ? 1 : 0
+  statement_id  = "AllowExecutionFromALB"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.cors_handler[0].function_name
+  principal     = "elasticloadbalancing.amazonaws.com"
+  source_arn    = aws_lb_target_group.lambda[0].arn
 }

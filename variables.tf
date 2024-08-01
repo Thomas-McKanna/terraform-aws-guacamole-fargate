@@ -127,3 +127,9 @@ variable "efs_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "cors_allowed_origin" {
+  description = "Origin to allow for CORS requests. If not provided, will not set CORS header."
+  type        = string
+  default     = ""
+}
