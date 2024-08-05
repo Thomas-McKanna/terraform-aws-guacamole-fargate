@@ -134,14 +134,14 @@ variable "cors_allowed_origin" {
   default     = ""
 }
 
-variable "guacamole_task_cpu_cores" {
-  description = "Number of CPU cores to allocate to Guacamole task."
+variable "guacamole_task_cpu" {
+  description = "Number of vCPU to allocate to Guacamole task. See https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html."
   type        = number
-  default     = 1
+  default     = 1024
 }
 
-variable "guacamole_task_memory_megabytes" {
-  description = "Amount of memory in MB to allocate to Guacamole task."
+variable "guacamole_task_memory" {
+  description = "Amount of memory in MiB to allocate to Guacamole task. See https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html."
   type        = number
   default     = 2048
 }

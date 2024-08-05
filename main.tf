@@ -389,8 +389,8 @@ resource "aws_ecs_task_definition" "guacamole" {
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
-  cpu                      = var.guacamole_task_cpu_cores * 1024
-  memory                   = var.guacamole_task_memory_megabytes
+  cpu                      = var.guacamole_task_cpu
+  memory                   = var.guacamole_task_memory
 
   dynamic "volume" {
     for_each = var.enable_session_recording ? [1] : []
