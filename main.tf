@@ -726,7 +726,7 @@ resource "aws_appautoscaling_policy" "guacamole_policy" {
   service_namespace  = aws_appautoscaling_target.guacamole_target.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value       = 75.0
+    target_value       = 50.0
     scale_in_cooldown  = 60
     scale_out_cooldown = 60
     predefined_metric_specification {
