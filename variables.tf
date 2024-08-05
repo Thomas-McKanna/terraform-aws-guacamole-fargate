@@ -133,3 +133,15 @@ variable "cors_allowed_origin" {
   type        = string
   default     = ""
 }
+
+variable "guacamole_task_cpu_cores" {
+  description = "Number of CPU cores to allocate to Guacamole task."
+  type        = number
+  default     = 1
+}
+
+variable "guacamole_task_memory_megabytes" {
+  description = "Amount of memory in MB to allocate to Guacamole task."
+  type        = number
+  default     = 2048
+}

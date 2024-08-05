@@ -204,7 +204,7 @@ This module has was developed and tested on an Ubuntu system.
 |------|-------------|------|---------|:--------:|
 | <a name="input_auto_pause_database"></a> [auto\_pause\_database](#input\_auto\_pause\_database) | Whether to automatically pause the database when not in use (this is a feature of Serverless RDS). | `bool` | `true` | no |
 | <a name="input_brute_force_allow_list"></a> [brute\_force\_allow\_list](#input\_brute\_force\_allow\_list) | List of CIDRs to always allow through WAF. If a single IP, write like `1.2.3.4/32`. | `list(string)` | `[]` | no |
-| <a name="input_cors_allowed_origin"></a> [cors\_allowed\_origin](#input\_cors\_allowed\_origin) | Origin to allow for CORS requests. If not provided, will not set CORS header. | `string` | `""` | no |
+| <a name="input_cors_allowed_origin"></a> [cors\_allowed\_origin](#input\_cors\_allowed\_origin) | Origin to allow for CORS requests to `/guacamole/api/tokens`. If not provided, will not set CORS header. | `string` | `""` | no |
 | <a name="input_db_enable_deletion_protection"></a> [db\_enable\_deletion\_protection](#input\_db\_enable\_deletion\_protection) | Whether to enable deletion protection for Aurora DB. | `bool` | `false` | no |
 | <a name="input_db_skip_final_snapshot"></a> [db\_skip\_final\_snapshot](#input\_db\_skip\_final\_snapshot) | Whether to skip final snapshot when Aurora DB is destroyed. | `bool` | `true` | no |
 | <a name="input_efs_tags"></a> [efs\_tags](#input\_efs\_tags) | Tags to apply to EFS instance. | `map(string)` | `{}` | no |
@@ -215,7 +215,9 @@ This module has was developed and tested on an Ubuntu system.
 | <a name="input_enable_session_recording"></a> [enable\_session\_recording](#input\_enable\_session\_recording) | If true, sessions will be recorded and stored in an AWS Elastic File System (EFS) instance. | `bool` | `false` | no |
 | <a name="input_guac_image_uri"></a> [guac\_image\_uri](#input\_guac\_image\_uri) | ARN of custom Guacamole image to use. If not provided, will use latest version of `guacamole/guacamole`. | `string` | `""` | no |
 | <a name="input_guacadmin_password"></a> [guacadmin\_password](#input\_guacadmin\_password) | Password for guacadmin user (a new random salt will be generated). | `string` | n/a | yes |
+| <a name="input_guacamole_task_cpu_cores"></a> [guacamole\_task\_cpu\_cores](#input\_guacamole\_task\_cpu\_cores) | Number of CPU cores to allocate to Guacamole task. | `number` | `1` | no |
 | <a name="input_guacamole_task_environment_vars"></a> [guacamole\_task\_environment\_vars](#input\_guacamole\_task\_environment\_vars) | Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`. | `list(map(string))` | `[]` | no |
+| <a name="input_guacamole_task_memory_megabytes"></a> [guacamole\_task\_memory\_megabytes](#input\_guacamole\_task\_memory\_megabytes) | Amount of memory in MB to allocate to Guacamole task. | `number` | `2048` | no |
 | <a name="input_guacamole_task_security_groups"></a> [guacamole\_task\_security\_groups](#input\_guacamole\_task\_security\_groups) | IDs of security groups to attach to Guacamole ECS task. | `list(string)` | `[]` | no |
 | <a name="input_hosted_zone_name"></a> [hosted\_zone\_name](#input\_hosted\_zone\_name) | If provided, will create DNS record in this hosted zone for load balancer. Not used if `use_http_only` is true. | `string` | `""` | no |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | Log level for Guacamole. | `string` | `"info"` | no |
