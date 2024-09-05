@@ -145,3 +145,9 @@ variable "guacamole_task_memory" {
   type        = number
   default     = 2048
 }
+
+variable "cidr_allow_list" {
+  description = "List of IP address ranges (CIDRs) to allow access to Guacamole. All other IP addresses will be blocked. If a single IP, write like `1.1.1.1/32`."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
