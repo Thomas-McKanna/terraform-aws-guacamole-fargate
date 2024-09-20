@@ -7,6 +7,7 @@ module "guacamole" {
   use_http_only            = true # Should set to false for any real deployment
   enable_session_recording = true
   enable_execute_command   = true # For debugging
+  # cidr_allow_list          = ["1.2.3.4/32"]
 }
 
 output "module_outputs" {

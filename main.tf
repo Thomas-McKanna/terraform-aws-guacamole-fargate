@@ -271,32 +271,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_policy" "ecs_efs_access" {
-  count       = var.enable_session_recording ? 1 : 0
-  name        = "ecs_efs_access-${random_password.random_id.result}"
-  description = "Allow ECS tasks to access EFS"
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite"
-        ],
-        Resource = aws_efs_file_system.guacamole_efs[0].arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_efs_access_attachment" {
-  count      = var.enable_session_recording ? 1 : 0
-  role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = aws_iam_policy.ecs_efs_access[0].arn
-}
-
 resource "aws_iam_policy" "ecs_task_execution_policy" {
   name        = "guacamole_ecs_execution_policy-${random_password.random_id.result}"
   description = "Policy to access secrets in Secrets Manager and optionally custom Guacamole image in ECR"
@@ -401,6 +375,9 @@ resource "aws_ecs_task_definition" "guacamole" {
         file_system_id     = aws_efs_file_system.guacamole_efs[0].id
         root_directory     = "/"
         transit_encryption = "ENABLED"
+        authorization_config {
+          iam = "ENABLED"
+        }
       }
     }
   }
@@ -746,6 +723,30 @@ resource "aws_efs_file_system" "guacamole_efs" {
     },
     var.efs_tags
   )
+}
+
+resource "aws_efs_file_system_policy" "guacamole_efs_policy" {
+  count          = var.enable_session_recording ? 1 : 0
+  file_system_id = aws_efs_file_system.guacamole_efs[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowAccessFromGuacamoleECS"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.ecs_task_role.arn
+        }
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess",
+        ]
+        Resource = aws_efs_file_system.guacamole_efs[0].arn
+      }
+    ]
+  })
 }
 
 resource "aws_efs_mount_target" "efs_mt" {
