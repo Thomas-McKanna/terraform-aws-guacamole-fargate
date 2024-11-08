@@ -222,8 +222,14 @@ resource "aws_rds_cluster" "guacamole_db" {
   }
 }
 
+# Sleep 2 minutes
+resource "time_sleep" "wait_for_db" {
+  depends_on      = [aws_rds_cluster.guacamole_db]
+  create_duration = "2m"
+}
+
 resource "null_resource" "db_init" {
-  depends_on = [aws_rds_cluster.guacamole_db]
+  depends_on = [time_sleep.wait_for_db]
 
   provisioner "local-exec" {
     command = <<EOT
