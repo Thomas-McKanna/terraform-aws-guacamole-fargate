@@ -1,0 +1,11 @@
+{
+  "guacamoleVersion": "*",
+  "name": "Tempname",
+  "namespace": "tempnamespace",
+  "translations": ["translations/en.json"],
+  "html": ["html/show_recording_banner.html"],
+  "css": ["css/login-override.css"],
+  "resources": {
+    "images/logo-placeholder.png": "image/png"
+  }
+}

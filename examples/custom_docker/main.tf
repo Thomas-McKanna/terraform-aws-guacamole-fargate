@@ -2,12 +2,12 @@ module "guacamole" {
   source = "../../"
 
   # Example: 123456789012.dkr.ecr.us-east-2.amazonaws.com/REPO_NAME:TAG
-  guac_image_uri     = "CHANGEME"
+  guac_image_uri     = "869990052760.dkr.ecr.us-east-2.amazonaws.com/custom-guacamole"
   guacadmin_password = "gu4c4m0l3" # Hardcoded for testing only
   public_subnets     = module.vpc.public_subnets
   private_subnets    = module.vpc.private_subnets
   use_http_only      = true
-  # cidr_allow_list    = ["1.1.1.1/32"] # Defaults to 0.0.0.0/0
+  cidr_allow_list    = ["69.239.157.10/32"] # Defaults to 0.0.0.0/0
 }
 
 output "module_outputs" {
