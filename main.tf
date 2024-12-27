@@ -772,7 +772,7 @@ resource "aws_efs_access_point" "guacamole_efs_access_point" {
   }
 
   root_directory {
-    path = local.session_recording_path
+    path = "/"
     creation_info {
       owner_uid   = 1000
       owner_gid   = 1001
