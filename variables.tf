@@ -95,7 +95,7 @@ variable "log_level" {
 variable "auto_pause_database" {
   description = "Whether to automatically pause the database when not in use (this is a feature of Serverless RDS)."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "seconds_until_auto_pause" {

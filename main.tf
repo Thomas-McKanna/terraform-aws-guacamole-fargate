@@ -762,6 +762,25 @@ resource "aws_efs_mount_target" "efs_mt" {
   security_groups = [aws_security_group.recordings_efs_access[0].id]
 }
 
+resource "aws_efs_access_point" "guacamole_efs_access_point" {
+  count          = var.enable_session_recording ? 1 : 0
+  file_system_id = aws_efs_file_system.guacamole_efs[0].id
+
+  posix_user {
+    uid = 1000
+    gid = 1001
+  }
+
+  root_directory {
+    path = local.session_recording_path
+    creation_info {
+      owner_uid   = 1000
+      owner_gid   = 1001
+      permissions = "750"
+    }
+  }
+}
+
 resource "aws_wafv2_ip_set" "allowlist" {
   count = var.enable_brute_force_protection && var.brute_force_allow_list != [] ? 1 : 0
 
