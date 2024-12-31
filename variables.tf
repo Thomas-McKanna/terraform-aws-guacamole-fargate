@@ -1,5 +1,6 @@
 variable "guacadmin_password" {
   description = "Password for guacadmin user (a new random salt will be generated)."
+  default     = "guacadmin"
   type        = string
   sensitive   = true
 }
@@ -90,6 +91,12 @@ variable "log_level" {
   description = "Log level for Guacamole."
   type        = string
   default     = "info"
+}
+
+variable "disable_database" {
+  description = "If true, will not create an Aurora database for Guacamole. Can be cost-efficient if not using JDBC auth plugin."
+  type        = bool
+  default     = false
 }
 
 variable "auto_pause_database" {

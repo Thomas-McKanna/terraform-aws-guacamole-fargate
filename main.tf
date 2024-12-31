@@ -20,6 +20,28 @@ locals {
   ecr_repository_arn     = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
   create_cors_lambda     = var.cors_allowed_origin != ""
 
+  database_env = var.disable_database ? [] : [
+    {
+      name  = "POSTGRESQL_HOSTNAME"
+      value = aws_rds_cluster.guacamole_db[0].endpoint
+    },
+    {
+      name  = "POSTGRESQL_DATABASE"
+      value = local.guacamole_db_name
+    },
+  ]
+
+  database_secrets = var.disable_database ? [] : [
+    {
+      name      = "POSTGRESQL_USER"
+      valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials[0].arn}:username::"
+    },
+    {
+      name      = "POSTGRESQL_PASSWORD"
+      valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials[0].arn}:password::"
+    },
+  ]
+
   session_recording_env = var.enable_session_recording ? [
     {
       name  = "RECORDING_SEARCH_PATH"
@@ -65,16 +87,9 @@ locals {
       ],
       environment = concat(
         local.session_recording_env,
+        local.database_env,
         var.guacamole_task_environment_vars,
         [
-          {
-            name  = "POSTGRESQL_HOSTNAME",
-            value = aws_rds_cluster.guacamole_db.endpoint
-          },
-          {
-            name  = "POSTGRESQL_DATABASE",
-            value = local.guacamole_db_name
-          },
           {
             name  = "GUACD_HOSTNAME",
             value = "localhost"
@@ -89,16 +104,7 @@ locals {
           },
         ]
       ),
-      secrets = [
-        {
-          name      = "POSTGRESQL_USER",
-          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:username::"
-        },
-        {
-          name      = "POSTGRESQL_PASSWORD",
-          valueFrom = "${aws_secretsmanager_secret.guacamole_db_credentials.arn}:password::"
-        }
-      ],
+      secrets = local.database_secrets,
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -165,11 +171,15 @@ resource "random_password" "random_id" {
 }
 
 resource "aws_db_subnet_group" "guacamole" {
+  count = var.disable_database ? 0 : 1
+
   name       = "guacamole-db-subnet-group-${random_password.random_id.result}"
   subnet_ids = var.private_subnets
 }
 
 resource "random_password" "guacamole_db_password" {
+  count = var.disable_database ? 0 : 1
+
   length           = 16
   special          = true
   override_special = "$&!%"
@@ -181,6 +191,8 @@ data "aws_rds_engine_version" "postgresql" {
 }
 
 resource "aws_security_group" "rds_sg" {
+  count = var.disable_database ? 0 : 1
+
   name        = "guacamole-db-sg-${random_password.random_id.result}"
   description = "Security group for RDS"
   vpc_id      = data.aws_vpc.this.id
@@ -201,12 +213,14 @@ resource "aws_security_group" "rds_sg" {
 }
 
 resource "aws_rds_cluster" "guacamole_db" {
+  count = var.disable_database ? 0 : 1
+
   cluster_identifier     = "guacamole-db-${random_password.random_id.result}"
   engine                 = "aurora-postgresql"
-  db_subnet_group_name   = aws_db_subnet_group.guacamole.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  db_subnet_group_name   = aws_db_subnet_group.guacamole[0].name
+  vpc_security_group_ids = [aws_security_group.rds_sg[0].id]
   master_username        = local.guacamole_db_username
-  master_password        = random_password.guacamole_db_password.result
+  master_password        = random_password.guacamole_db_password[0].result
   skip_final_snapshot    = var.db_skip_final_snapshot
   deletion_protection    = var.db_enable_deletion_protection
 
@@ -224,17 +238,20 @@ resource "aws_rds_cluster" "guacamole_db" {
 
 # Sleep 2 minutes
 resource "time_sleep" "wait_for_db" {
+  count = var.disable_database ? 0 : 1
+
   depends_on      = [aws_rds_cluster.guacamole_db]
   create_duration = "2m"
 }
 
 resource "null_resource" "db_init" {
+  count      = var.disable_database ? 0 : 1
   depends_on = [time_sleep.wait_for_db]
 
   provisioner "local-exec" {
     command = <<EOT
-      export DB_ARN="${aws_rds_cluster.guacamole_db.arn}"
-      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
+      export DB_ARN="${aws_rds_cluster.guacamole_db[0].arn}"
+      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials[0].arn}"
       export DB_NAME="${local.guacamole_db_name}"
       export GUACADMIN_PASSWORD="${var.guacadmin_password}"
       ${path.module}/init_db.sh
@@ -243,15 +260,19 @@ resource "null_resource" "db_init" {
 }
 
 resource "aws_secretsmanager_secret" "guacamole_db_credentials" {
+  count = var.disable_database ? 0 : 1
+
   name                    = "guacamole-db-credentials-${random_password.random_id.result}"
   recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "guacamole_db_credentials" {
-  secret_id = aws_secretsmanager_secret.guacamole_db_credentials.id
+  count = var.disable_database ? 0 : 1
+
+  secret_id = aws_secretsmanager_secret.guacamole_db_credentials[0].id
   secret_string = jsonencode({
     username = local.guacamole_db_username
-    password = random_password.guacamole_db_password.result
+    password = random_password.guacamole_db_password[0].result
   })
 }
 
@@ -278,21 +299,14 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 }
 
 resource "aws_iam_policy" "ecs_task_execution_policy" {
+  count = var.disable_database || var.guac_image_uri != "" ? 0 : 1
+
   name        = "guacamole_ecs_execution_policy-${random_password.random_id.result}"
   description = "Policy to access secrets in Secrets Manager and optionally custom Guacamole image in ECR"
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = concat([
-      {
-        Action = [
-          "secretsmanager:GetSecretValue",
-          "secretsmanager:DescribeSecret"
-        ],
-        Effect   = "Allow",
-        Resource = aws_secretsmanager_secret.guacamole_db_credentials.arn
-      }
-      ], var.guac_image_uri != "" ? [
+    Statement = concat(var.guac_image_uri != "" ? [
       {
         Effect = "Allow",
         Action = [
@@ -302,13 +316,24 @@ resource "aws_iam_policy" "ecs_task_execution_policy" {
         ],
         Resource = local.ecr_repository_arn
       }
-    ] : [])
+      ] : [],
+      var.disable_database ? [] : [{
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ],
+        Resource = aws_secretsmanager_secret.guacamole_db_credentials[0].arn
+        },
+    ])
   })
 }
 
 resource "aws_iam_role_policy_attachment" "secret_access_attachment" {
+  count = var.disable_database || var.guac_image_uri != "" ? 0 : 1
+
   role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = aws_iam_policy.ecs_task_execution_policy.arn
+  policy_arn = aws_iam_policy.ecs_task_execution_policy[0].arn
 }
 
 
