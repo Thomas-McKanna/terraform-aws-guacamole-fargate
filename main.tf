@@ -298,15 +298,16 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_policy" "ecs_task_execution_policy" {
-  count = var.disable_database || var.guac_image_uri != "" ? 0 : 1
+# Policy for ECR access
+resource "aws_iam_policy" "ecr_access_policy" {
+  count = var.guac_image_uri != "" ? 1 : 0
 
-  name        = "guacamole_ecs_execution_policy-${random_password.random_id.result}"
-  description = "Policy to access secrets in Secrets Manager and optionally custom Guacamole image in ECR"
+  name        = "guacamole_ecr_access_policy-${random_password.random_id.result}"
+  description = "Policy to access custom Guacamole image in ECR"
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = concat(var.guac_image_uri != "" ? [
+    Statement = [
       {
         Effect = "Allow",
         Action = [
@@ -316,26 +317,46 @@ resource "aws_iam_policy" "ecs_task_execution_policy" {
         ],
         Resource = local.ecr_repository_arn
       }
-      ] : [],
-      var.disable_database ? [] : [{
+    ]
+  })
+}
+
+# Policy for Secrets Manager access
+resource "aws_iam_policy" "secrets_access_policy" {
+  count = var.disable_database ? 0 : 1
+
+  name        = "guacamole_secrets_access_policy-${random_password.random_id.result}"
+  description = "Policy to access secrets in Secrets Manager"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
         Effect = "Allow",
         Action = [
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ],
         Resource = aws_secretsmanager_secret.guacamole_db_credentials[0].arn
-        },
-    ])
+      }
+    ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "secret_access_attachment" {
-  count = var.disable_database || var.guac_image_uri != "" ? 0 : 1
+# Policy attachments
+resource "aws_iam_role_policy_attachment" "ecr_access_attachment" {
+  count = var.guac_image_uri != "" ? 1 : 0
 
   role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = aws_iam_policy.ecs_task_execution_policy[0].arn
+  policy_arn = aws_iam_policy.ecr_access_policy[0].arn
 }
 
+resource "aws_iam_role_policy_attachment" "secret_access_attachment" {
+  count = var.disable_database ? 0 : 1
+
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = aws_iam_policy.secrets_access_policy[0].arn
+}
 
 data "aws_region" "current" {}
 
