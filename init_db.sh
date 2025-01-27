@@ -40,8 +40,8 @@ set -x
 # Read the entire file into a variable
 sql_contents=$(<"/tmp/initdb.sql")
 
-# Split on semicolons and execute each statement
-echo "$sql_contents" | awk '
+# Remove SQL comments and empty lines, then split on semicolons and execute each statement
+echo "$sql_contents" | sed 's/--.*$//' | grep -v '^[[:space:]]*$' | awk '
 BEGIN { RS=";" }
 NF { 
     gsub(/^\n+/, "")  # Remove leading newlines
@@ -49,6 +49,7 @@ NF {
     if (length($0) > 0) {
         statement=$0 ";"
         cmd="aws rds-data execute-statement --resource-arn \"'"${DB_ARN}"'\" --secret-arn \"'"${DB_SECRET_ARN}"'\" --database \"'"${DB_NAME}"'\" --sql \"" statement "\""
+        print cmd  # Debug: print the command
         system(cmd)
     }
 }
