@@ -37,28 +37,22 @@ fi
 
 # Replace default guacadmin password with the one provided
 set -x
-# Read and execute SQL statements one at a time
-while IFS= read -r line || [ -n "$line" ]; do
-    # Skip empty lines and comments
-    if [[ -z "${line// }" ]] || [[ "$line" =~ ^-- ]]; then
-        continue
-    fi
-    
-    # Append to statement until we hit a semicolon
-    statement="${statement}${line}"
-    
-    if [[ "$line" =~ \;$ ]]; then
-        # Execute the complete statement
-        aws rds-data execute-statement \
-            --resource-arn "${DB_ARN}" \
-            --secret-arn "${DB_SECRET_ARN}" \
-            --database "${DB_NAME}" \
-            --sql "$statement"
-            
-        # Clear the statement buffer
-        statement=""
-    fi
-done < /tmp/initdb.sql
+# Read the entire file into a variable
+sql_contents=$(<"/tmp/initdb.sql")
+
+# Split on semicolons and execute each statement
+echo "$sql_contents" | awk '
+BEGIN { RS=";" }
+NF { 
+    gsub(/^\n+/, "")  # Remove leading newlines
+    gsub(/\n+$/, "")  # Remove trailing newlines
+    if (length($0) > 0) {
+        statement=$0 ";"
+        cmd="aws rds-data execute-statement --resource-arn \"'"${DB_ARN}"'\" --secret-arn \"'"${DB_SECRET_ARN}"'\" --database \"'"${DB_NAME}"'\" --sql \"" statement "\""
+        system(cmd)
+    }
+}
+'
 
 # Remove the initialization script
 rm /tmp/initdb.sql
