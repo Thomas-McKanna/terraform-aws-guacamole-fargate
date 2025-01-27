@@ -36,9 +36,9 @@ else
 fi
 
 # Replace default guacadmin password with the one provided
-
+set -x
 # Use Aurora Data API to execute the initialization script
-aws rds-data execute-statement \
+aws rds-data batch-execute-statement \
     --resource-arn "${DB_ARN}" \
     --secret-arn "${DB_SECRET_ARN}" \
     --database "${DB_NAME}" \
