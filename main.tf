@@ -236,9 +236,9 @@ resource "null_resource" "db_init" {
   provisioner "local-exec" {
     command = <<EOT
       export DB_ARN="${aws_rds_cluster.guacamole_db_cluster.arn}"
-      export DB_SECRET_ARN="${nonsensitive(aws_secretsmanager_secret.guacamole_db_credentials.arn)}"
+      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
       export DB_NAME="${local.guacamole_db_name}"
-      export GUACADMIN_PASSWORD="${nonsensitive(var.guacadmin_password)}"
+      export GUACADMIN_PASSWORD="${var.guacadmin_password}"
       ${path.module}/init_db.sh
     EOT
   }
