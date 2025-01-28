@@ -23,7 +23,7 @@ locals {
   database_env = var.disable_database ? [] : [
     {
       name  = "POSTGRESQL_HOSTNAME"
-      value = aws_rds_cluster.guacamole_db[0].endpoint
+      value = aws_rds_cluster.guacamole_db_cluster[0].endpoint
     },
     {
       name  = "POSTGRESQL_DATABASE"
@@ -207,7 +207,7 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-resource "aws_rds_cluster" "guacamole_db" {
+resource "aws_rds_cluster" "guacamole_db_cluster" {
   count = var.disable_database ? 0 : 1
 
   cluster_identifier     = "guacamole-db-${random_password.random_id.result}"
@@ -234,10 +234,10 @@ resource "aws_rds_cluster" "guacamole_db" {
 resource "aws_rds_cluster_instance" "guacamole_db_instance" {
   count = var.disable_database ? 0 : var.db_instance_count
 
-  cluster_identifier = aws_rds_cluster.guacamole_db_cluster.id
+  cluster_identifier = aws_rds_cluster.guacamole_db_cluster[0].id
+  engine             = aws_rds_cluster.guacamole_db_cluster[0].engine
+  engine_version     = aws_rds_cluster.guacamole_db_cluster[0].engine_version
   instance_class     = "db.serverless"
-  engine             = aws_rds_cluster.guacamole_db_cluster.engine
-  engine_version     = aws_rds_cluster.guacamole_db_cluster.engine_version
 }
 
 # Sleep 2 minutes
@@ -254,8 +254,8 @@ resource "null_resource" "db_init" {
 
   provisioner "local-exec" {
     command = <<EOT
-      export DB_ARN="${aws_rds_cluster.guacamole_db_cluster.arn}"
-      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
+      export DB_ARN="${aws_rds_cluster.guacamole_db_cluster[0].arn}"
+      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials[0].arn}"
       export DB_NAME="${local.guacamole_db_name}"
       export GUACADMIN_PASSWORD="${var.guacadmin_password}"
       ${path.module}/init_db.sh
