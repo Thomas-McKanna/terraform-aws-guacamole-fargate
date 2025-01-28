@@ -36,13 +36,24 @@ else
 fi
 
 # Replace default guacadmin password with the one provided
+set -x
+# Read the entire file into a variable
+sql_contents=$(<"/tmp/initdb.sql")
 
-# Use Aurora Data API to execute the initialization script
-aws rds-data execute-statement \
-    --resource-arn "${DB_ARN}" \
-    --secret-arn "${DB_SECRET_ARN}" \
-    --database "${DB_NAME}" \
-    --sql "file:///tmp/initdb.sql"
+# Remove SQL comments and empty lines, then split on semicolons and execute each statement
+echo "$sql_contents" | sed 's/--.*$//' | grep -v '^[[:space:]]*$' | awk '
+BEGIN { RS=";" }
+NF { 
+    gsub(/^\n+/, "")  # Remove leading newlines
+    gsub(/\n+$/, "")  # Remove trailing newlines
+    if (length($0) > 0) {
+        statement=$0 ";"
+        cmd="aws rds-data execute-statement --resource-arn \"'"${DB_ARN}"'\" --secret-arn \"'"${DB_SECRET_ARN}"'\" --database \"'"${DB_NAME}"'\" --sql \"" statement "\""
+        print cmd  # Debug: print the command
+        system(cmd)
+    }
+}
+'
 
 # Remove the initialization script
 rm /tmp/initdb.sql

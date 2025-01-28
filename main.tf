@@ -185,11 +185,6 @@ resource "random_password" "guacamole_db_password" {
   override_special = "$&!%"
 }
 
-data "aws_rds_engine_version" "postgresql" {
-  engine  = "aurora-postgresql"
-  version = "14.5"
-}
-
 resource "aws_security_group" "rds_sg" {
   count = var.disable_database ? 0 : 1
 
@@ -226,21 +221,30 @@ resource "aws_rds_cluster" "guacamole_db" {
 
   database_name = local.guacamole_db_name
 
-  engine_mode          = "serverless"
+  engine_mode          = "provisioned"
   enable_http_endpoint = true
-  scaling_configuration {
-    auto_pause               = var.auto_pause_database
-    min_capacity             = 2
-    max_capacity             = 32
-    seconds_until_auto_pause = var.seconds_until_auto_pause
+
+  serverlessv2_scaling_configuration {
+    min_capacity             = var.db_min_capacity
+    max_capacity             = var.db_max_capacity
+    seconds_until_auto_pause = var.db_min_capacity == 0.0 ? var.db_auto_pause : null
   }
+}
+
+resource "aws_rds_cluster_instance" "guacamole_db_instance" {
+  count = var.disable_database ? 0 : var.db_instance_count
+
+  cluster_identifier = aws_rds_cluster.guacamole_db_cluster.id
+  instance_class     = "db.serverless"
+  engine             = aws_rds_cluster.guacamole_db_cluster.engine
+  engine_version     = aws_rds_cluster.guacamole_db_cluster.engine_version
 }
 
 # Sleep 2 minutes
 resource "time_sleep" "wait_for_db" {
   count = var.disable_database ? 0 : 1
 
-  depends_on      = [aws_rds_cluster.guacamole_db]
+  depends_on      = [aws_rds_cluster_instance.guacamole_db_instance]
   create_duration = "2m"
 }
 
@@ -250,8 +254,8 @@ resource "null_resource" "db_init" {
 
   provisioner "local-exec" {
     command = <<EOT
-      export DB_ARN="${aws_rds_cluster.guacamole_db[0].arn}"
-      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials[0].arn}"
+      export DB_ARN="${aws_rds_cluster.guacamole_db_cluster.arn}"
+      export DB_SECRET_ARN="${aws_secretsmanager_secret.guacamole_db_credentials.arn}"
       export DB_NAME="${local.guacamole_db_name}"
       export GUACADMIN_PASSWORD="${var.guacadmin_password}"
       ${path.module}/init_db.sh

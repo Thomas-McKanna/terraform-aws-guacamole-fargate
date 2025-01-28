@@ -39,18 +39,6 @@ variable "subdomain" {
   default     = ""
 }
 
-variable "db_skip_final_snapshot" {
-  description = "Whether to skip final snapshot when Aurora DB is destroyed."
-  type        = bool
-  default     = true
-}
-
-variable "db_enable_deletion_protection" {
-  description = "Whether to enable deletion protection for Aurora DB."
-  type        = bool
-  default     = false
-}
-
 variable "maximum_guacamole_task_count" {
   description = "Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1."
   type        = number
@@ -94,15 +82,45 @@ variable "log_level" {
 }
 
 variable "disable_database" {
-  description = "If true, will not create an Aurora database for Guacamole. Can be cost-efficient if not using JDBC auth plugin."
+  description = "If true, will not create an Aurora database for Guacamole. Can be cost-efficient if not using JDBC auth plugin. If true, none of the other database variables are used."
   type        = bool
   default     = false
 }
 
-variable "auto_pause_database" {
-  description = "Whether to automatically pause the database when not in use (this is a feature of Serverless RDS)."
+variable "db_skip_final_snapshot" {
+  description = "Whether to skip final snapshot when Aurora DB is destroyed."
+  type        = bool
+  default     = true
+}
+
+variable "db_enable_deletion_protection" {
+  description = "Whether to enable deletion protection for Aurora DB."
   type        = bool
   default     = false
+}
+
+variable "db_instance_count" {
+  description = "Number of Aurora instances to create (if you need read replicas)."
+  type        = number
+  default     = 1
+}
+
+variable "db_min_capacity" {
+  description = "Minimum capacity AUC for Aurora DB."
+  type        = number
+  default     = 0.5
+}
+
+variable "db_max_capacity" {
+  description = "Maximum capacity AUC for Aurora DB."
+  type        = number
+  default     = 2.0
+}
+
+variable "db_auto_pause" {
+  description = "Seconds after which to automatically pause the database (only applies if db_min_capacity is 0.0)."
+  type        = number
+  default     = 3600
 }
 
 variable "seconds_until_auto_pause" {
