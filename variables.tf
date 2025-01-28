@@ -50,6 +50,12 @@ variable "db_enable_deletion_protection" {
   default     = false
 }
 
+variable "db_single_az" {
+  description = "Whether to deploy Aurora DB in single AZ."
+  type        = bool
+  default     = false
+}
+
 variable "maximum_guacamole_task_count" {
   description = "Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1."
   type        = number
@@ -92,10 +98,22 @@ variable "log_level" {
   default     = "info"
 }
 
-variable "auto_pause_database" {
-  description = "Whether to automatically pause the database when not in use (this is a feature of Serverless RDS)."
-  type        = bool
-  default     = true
+variable "db_min_capacity" {
+  description = "Minimum capacity AUC for Aurora DB."
+  type        = number
+  default     = 0.5
+}
+
+variable "db_max_capacity" {
+  description = "Maximum capacity AUC for Aurora DB."
+  type        = number
+  default     = 2.0
+}
+
+variable "db_auto_pause" {
+  description = "Seconds after which to automatically pause the database (only applies if db_min_capacity is 0.0)."
+  type        = number
+  default     = 3600
 }
 
 variable "seconds_until_auto_pause" {
