@@ -25,6 +25,7 @@ fi
 # Generate initialization script from latest guacamole image
 docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --postgresql > /tmp/initdb.sql
 
+# Replace default guacadmin password with the one provided
 if [[ "$(uname)" == "Darwin" ]]; then
     # macOS (BSD sed)
     sed -i '' 's/'"$ORIG_HASH"'/'"$NEW_HASH"'/g' /tmp/initdb.sql
@@ -35,8 +36,7 @@ else
     sed -i 's/'"$ORIG_SALT"'/'"$NEW_SALT"'/g' /tmp/initdb.sql
 fi
 
-# Replace default guacadmin password with the one provided
-set -x
+
 # Read the entire file into a variable
 sql_contents=$(<"/tmp/initdb.sql")
 
