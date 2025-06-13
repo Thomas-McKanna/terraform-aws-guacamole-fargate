@@ -39,5 +39,4 @@ terraform.rc
 
 other.md
 
-cors_lambda_function_*
 .aider*

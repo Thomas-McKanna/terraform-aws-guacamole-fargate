@@ -39,12 +39,6 @@ variable "subdomain" {
   default     = ""
 }
 
-variable "maximum_guacamole_task_count" {
-  description = "Maximum number of Guacamole tasks to run at once (for autoscaling). Minimum number of tasks is always 1."
-  type        = number
-  default     = 10
-}
-
 variable "guacamole_task_environment_vars" {
   description = "Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`."
   type        = list(map(string))
@@ -129,34 +123,16 @@ variable "seconds_until_auto_pause" {
   default     = 300
 }
 
-variable "enable_alb_logging" {
-  description = "Whether to enable logging for the ALB."
+variable "enable_nlb_logging" {
+  description = "Whether to enable logging for the NLB."
   type        = bool
   default     = false
-}
-
-variable "enable_brute_force_protection" {
-  description = "If enabled, will create Web Application Firewall (WAF) rules to block brute force attacks."
-  type        = bool
-  default     = true
-}
-
-variable "brute_force_allow_list" {
-  description = "List of CIDRs to always allow through WAF. If a single IP, write like `1.2.3.4/32`."
-  type        = list(string)
-  default     = []
 }
 
 variable "efs_tags" {
   description = "Tags to apply to EFS instance."
   type        = map(string)
   default     = {}
-}
-
-variable "cors_allowed_origin" {
-  description = "Origin to allow for CORS requests to `/guacamole/api/tokens`. If not provided, will not set CORS header."
-  type        = string
-  default     = ""
 }
 
 variable "guacamole_task_cpu" {

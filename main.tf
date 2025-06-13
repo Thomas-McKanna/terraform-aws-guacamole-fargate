@@ -18,7 +18,6 @@ locals {
   guac_url               = var.hosted_zone_name != "" ? "https://${local.fqdn}/guacamole/" : "http://${aws_lb.guacamole_lb.dns_name}/guacamole/"
   guac_image             = var.guac_image_uri != "" ? var.guac_image_uri : "guacamole/guacamole"
   ecr_repository_arn     = var.guac_image_uri != "" ? format("arn:aws:ecr:%s:%s:repository/%s", element(split(".", var.guac_image_uri), 3), element(split(".", var.guac_image_uri), 0), element(split("/", split(":", var.guac_image_uri)[0]), 1)) : ""
-  create_cors_lambda     = var.cors_allowed_origin != ""
 
   database_env = var.disable_database ? [] : [
     {
@@ -364,17 +363,10 @@ resource "aws_iam_role_policy_attachment" "secret_access_attachment" {
 
 data "aws_region" "current" {}
 
-resource "aws_security_group" "alb_sg" {
-  name        = "guacamole-alb-sg-${random_password.random_id.result}"
-  description = "Security group for ALB"
+resource "aws_security_group" "nlb_sg" {
+  name        = "guacamole-nlb-sg-${random_password.random_id.result}"
+  description = "Security group for NLB"
   vpc_id      = data.aws_vpc.this.id
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.cidr_allow_list
-  }
 
   ingress {
     from_port   = 443
@@ -444,35 +436,35 @@ resource "aws_ecs_task_definition" "guacamole" {
 resource "aws_lb" "guacamole_lb" {
   name                       = "guacamole-lb-${random_password.random_id.result}"
   internal                   = false
-  load_balancer_type         = "application"
-  security_groups            = [aws_security_group.alb_sg.id]
+  load_balancer_type         = "network"
+  security_groups            = [aws_security_group.nlb_sg.id]
   subnets                    = var.public_subnets
   drop_invalid_header_fields = true
 
   enable_deletion_protection = false
 
   dynamic "access_logs" {
-    for_each = var.enable_alb_logging ? [1] : []
+    for_each = var.enable_nlb_logging ? [1] : []
     content {
-      bucket  = aws_s3_bucket.alb_logging[0].bucket
-      prefix  = "alb-logs"
+      bucket  = aws_s3_bucket.nlb_logging[0].bucket
+      prefix  = "nlb-logs"
       enabled = true
     }
   }
 }
 
-resource "aws_s3_bucket" "alb_logging" {
-  count = var.enable_alb_logging ? 1 : 0
+resource "aws_s3_bucket" "nlb_logging" {
+  count = var.enable_nlb_logging ? 1 : 0
 
-  bucket        = "guacamole-alb-logging-${random_password.random_id.result}"
+  bucket        = "guacamole-nlb-logging-${random_password.random_id.result}"
   force_destroy = true
 }
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket_policy" "alb_logging_policy" {
-  count  = var.enable_alb_logging ? 1 : 0
-  bucket = aws_s3_bucket.alb_logging[0].id
+resource "aws_s3_bucket_policy" "nlb_logging_policy" {
+  count  = var.enable_nlb_logging ? 1 : 0
+  bucket = aws_s3_bucket.nlb_logging[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -483,13 +475,11 @@ resource "aws_s3_bucket_policy" "alb_logging_policy" {
           AWS = "arn:aws:iam::033677994240:root"
         }
         Action   = "s3:PutObject"
-        Resource = "arn:aws:s3:::${aws_s3_bucket.alb_logging[0].bucket}/alb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Resource = "arn:aws:s3:::${aws_s3_bucket.nlb_logging[0].bucket}/nlb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
       }
     ]
   })
 }
-
-
 
 data "aws_route53_zone" "zone" {
   count = var.use_http_only ? 0 : 1
@@ -507,36 +497,6 @@ resource "aws_route53_record" "guacamole" {
     name                   = aws_lb.guacamole_lb.dns_name
     zone_id                = aws_lb.guacamole_lb.zone_id
     evaluate_target_health = false
-  }
-}
-
-resource "aws_lb_listener" "http" {
-  count = var.use_http_only ? 1 : 0
-
-  load_balancer_arn = aws_lb.guacamole_lb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.guacamole_tg.arn
-  }
-}
-
-resource "aws_lb_listener" "http_redirect" {
-  count = var.use_http_only ? 0 : 1
-
-  load_balancer_arn = aws_lb.guacamole_lb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
   }
 }
 
@@ -561,7 +521,7 @@ resource "aws_lb_listener" "https" {
 
   load_balancer_arn = aws_lb.guacamole_lb.arn
   port              = 443
-  protocol          = "HTTPS"
+  protocol          = "TLS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
   certificate_arn   = module.acm[0].acm_certificate_arn
 
@@ -571,65 +531,12 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-# Add a new listener rule for CORS handling
-resource "aws_lb_listener_rule" "cors_rule" {
-  count        = local.create_cors_lambda ? 1 : 0
-  listener_arn = var.use_http_only ? aws_lb_listener.http[0].arn : aws_lb_listener.https[0].arn
-  priority     = 1
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.lambda[0].arn
-  }
-
-  condition {
-    http_request_method {
-      values = ["OPTIONS"]
-    }
-  }
-
-  condition {
-    path_pattern {
-      values = ["/guacamole/api/tokens"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "redirect_root" {
-  count = var.use_http_only ? 0 : 1
-
-  listener_arn = aws_lb_listener.https[0].arn
-  priority     = 100
-
-  action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-      path        = "/guacamole"
-    }
-  }
-
-  condition {
-    path_pattern {
-      values = ["/"]
-    }
-  }
-}
-
 resource "aws_lb_target_group" "guacamole_tg" {
   name        = "guacamole-tg-${random_password.random_id.result}"
   port        = 8080
-  protocol    = "HTTP"
+  protocol    = "TCP"
   vpc_id      = data.aws_vpc.this.id
   target_type = "ip"
-
-  stickiness {
-    type            = "lb_cookie"
-    enabled         = true
-    cookie_duration = 86400 # 86400 seconds = 1 day.
-  }
 
   health_check {
     path     = "/guacamole/"
@@ -660,7 +567,7 @@ resource "aws_security_group" "ecs_sg" {
     from_port       = 8080
     to_port         = 8080
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id]
+    security_groups = [aws_security_group.nlb_sg.id]
   }
 
   # Needed for fetching secrets from Secrets Manager and for accessing RDS
@@ -743,31 +650,6 @@ resource "aws_ecs_service" "guacamole" {
   }
 }
 
-resource "aws_appautoscaling_target" "guacamole_target" {
-  max_capacity       = var.maximum_guacamole_task_count
-  min_capacity       = 1
-  resource_id        = "service/${aws_ecs_cluster.fargate_cluster.name}/${aws_ecs_service.guacamole.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-resource "aws_appautoscaling_policy" "guacamole_policy" {
-  name               = "guacamole_autoscaling_policy_${random_password.random_id.result}"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.guacamole_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.guacamole_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.guacamole_target.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    target_value       = 50.0
-    scale_in_cooldown  = 60
-    scale_out_cooldown = 60
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-  }
-}
-
 resource "aws_efs_file_system" "guacamole_efs" {
   count          = var.enable_session_recording ? 1 : 0
   creation_token = "guacamole-efs-${random_password.random_id.result}"
@@ -829,182 +711,4 @@ resource "aws_efs_access_point" "guacamole_efs_access_point" {
       permissions = "750"
     }
   }
-}
-
-resource "aws_wafv2_ip_set" "allowlist" {
-  count = var.enable_brute_force_protection && var.brute_force_allow_list != [] ? 1 : 0
-
-  name               = "guac-ip-allowlist-${random_password.random_id.result}"
-  scope              = "REGIONAL"
-  ip_address_version = "IPV4"
-  addresses          = var.brute_force_allow_list
-}
-
-resource "aws_wafv2_web_acl" "example" {
-  count = var.enable_brute_force_protection ? 1 : 0
-
-  name        = "guac-acl-${random_password.random_id.result}"
-  scope       = "REGIONAL"
-  description = "ACL for brute-force login attempts mitigation"
-
-  default_action {
-    allow {}
-  }
-
-  dynamic "rule" {
-    for_each = length(var.brute_force_allow_list) > 0 ? [1] : []
-    content {
-      name     = "IPAllowlist"
-      priority = 0
-
-      action {
-        allow {}
-      }
-
-      statement {
-        ip_set_reference_statement {
-          arn = aws_wafv2_ip_set.allowlist[0].arn
-        }
-      }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "GuacIPAllowlist-${random_password.random_id.result}"
-        sampled_requests_enabled   = true
-      }
-    }
-  }
-
-  rule {
-    name     = "RateLimit"
-    priority = 1
-
-    action {
-      block {}
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "GuacRateLimit-${random_password.random_id.result}"
-      sampled_requests_enabled   = true
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = 100 # Set the rate limit to 100 requests per 5 minutes
-        aggregate_key_type = "IP"
-        scope_down_statement {
-          byte_match_statement {
-            field_to_match {
-              uri_path {}
-            }
-            positional_constraint = "ENDS_WITH"
-            search_string         = "/api/tokens"
-            text_transformation {
-              priority = 0
-              type     = "NONE"
-            }
-          }
-        }
-      }
-    }
-  }
-
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name                = "GuacAcl-${random_password.random_id.result}"
-    sampled_requests_enabled   = true
-  }
-}
-
-resource "aws_wafv2_web_acl_association" "load_balancer" {
-  count = var.enable_brute_force_protection ? 1 : 0
-
-  resource_arn = aws_lb.guacamole_lb.arn
-  web_acl_arn  = aws_wafv2_web_acl.example[0].arn
-}
-
-resource "aws_lambda_function" "cors_handler" {
-  count         = local.create_cors_lambda ? 1 : 0
-  function_name = "guacamole-cors-handler-${random_password.random_id.result}"
-  role          = aws_iam_role.lambda_exec[0].arn
-  handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
-  filename      = data.archive_file.lambda_zip[0].output_path
-
-  environment {
-    variables = {
-      ALLOWED_ORIGIN = var.cors_allowed_origin
-    }
-  }
-
-  source_code_hash = data.archive_file.lambda_zip[0].output_base64sha256
-}
-
-data "archive_file" "lambda_zip" {
-  count       = local.create_cors_lambda ? 1 : 0
-  type        = "zip"
-  output_path = "${path.module}/cors_lambda_function_${random_password.random_id.result}.zip"
-
-  source {
-    content  = <<EOF
-import os
-
-def lambda_handler(event, context):
-    allowed_origin = os.environ['ALLOWED_ORIGIN']
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Access-Control-Allow-Origin': allowed_origin,
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
-        },
-        'body': ''
-    }
-EOF
-    filename = "lambda_function.py"
-  }
-}
-
-resource "aws_iam_role" "lambda_exec" {
-  count = local.create_cors_lambda ? 1 : 0
-  name  = "guacamole-lambda-exec-${random_password.random_id.result}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_exec_policy" {
-  count      = local.create_cors_lambda ? 1 : 0
-  role       = aws_iam_role.lambda_exec[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_lb_target_group" "lambda" {
-  count       = local.create_cors_lambda ? 1 : 0
-  name        = "guacamole-lambda-tg-${random_password.random_id.result}"
-  target_type = "lambda"
-}
-
-resource "aws_lb_target_group_attachment" "lambda" {
-  count            = local.create_cors_lambda ? 1 : 0
-  target_group_arn = aws_lb_target_group.lambda[0].arn
-  target_id        = aws_lambda_function.cors_handler[0].arn
-}
-
-resource "aws_lambda_permission" "allow_alb" {
-  count         = local.create_cors_lambda ? 1 : 0
-  statement_id  = "AllowExecutionFromALB"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.cors_handler[0].function_name
-  principal     = "elasticloadbalancing.amazonaws.com"
-  source_arn    = aws_lb_target_group.lambda[0].arn
 }

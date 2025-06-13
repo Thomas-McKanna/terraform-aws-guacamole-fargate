@@ -7,7 +7,7 @@ module "guacamole" {
   public_subnets     = module.vpc.public_subnets
   private_subnets    = module.vpc.private_subnets
   use_http_only      = true
-  cidr_allow_list    = ["69.239.157.10/32"] # Defaults to 0.0.0.0/0
+  cidr_allow_list    = ["0.0.0.0/0"] # Defaults to 0.0.0.0/0
 }
 
 output "module_outputs" {
