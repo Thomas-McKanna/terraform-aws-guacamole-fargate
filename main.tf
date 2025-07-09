@@ -447,7 +447,7 @@ resource "aws_lb" "guacamole_lb" {
     for_each = var.enable_nlb_logging ? [1] : []
     content {
       bucket  = aws_s3_bucket.nlb_logging[0].bucket
-      prefix  = "nlb-logs"
+      prefix  = "guac-nlb-logs"
       enabled = true
     }
   }
@@ -468,14 +468,42 @@ resource "aws_s3_bucket_policy" "nlb_logging_policy" {
 
   policy = jsonencode({
     Version = "2012-10-17"
+    Id      = "AWSLogDeliveryWrite",
     Statement = [
       {
+        Sid    = "AWSLogDeliveryAclCheck"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::033677994240:root"
+          Service = "delivery.logs.amazonaws.com"
+        }
+        Action   = "s3:GetBucketAcl"
+        Resource = "arn:aws:s3:::${aws_s3_bucket.nlb_logging[0].bucket}"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = ["${data.aws_caller_identity.current.account_id}"]
+          }
+          ArnLike = {
+            "aws:SourceArn" = ["arn:aws:logs:us-east-2:${data.aws_caller_identity.current.account_id}:*"]
+          }
+        }
+      },
+      {
+        Sid    = "AWSLogDeliveryWrite"
+        Effect = "Allow"
+        Principal = {
+          Service = "delivery.logs.amazonaws.com"
         }
         Action   = "s3:PutObject"
-        Resource = "arn:aws:s3:::${aws_s3_bucket.nlb_logging[0].bucket}/nlb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Resource = "arn:aws:s3:::${aws_s3_bucket.nlb_logging[0].bucket}/guac-nlb-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl"      = "bucket-owner-full-control"
+            "aws:SourceAccount" = ["${data.aws_caller_identity.current.account_id}"]
+          }
+          ArnLike = {
+            "aws:SourceArn" = ["arn:aws:logs:us-east-2:${data.aws_caller_identity.current.account_id}:*"]
+          }
+        }
       }
     ]
   })
@@ -514,6 +542,19 @@ module "acm" {
   wait_for_validation = true
 
   subject_alternative_names = [local.fqdn]
+}
+
+resource "aws_lb_listener" "http" {
+  count = var.use_http_only ? 1 : 0
+
+  load_balancer_arn = aws_lb.guacamole_lb.arn
+  port              = 80
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.guacamole_tg.arn
+  }
 }
 
 resource "aws_lb_listener" "https" {

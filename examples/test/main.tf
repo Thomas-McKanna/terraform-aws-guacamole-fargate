@@ -1,13 +1,13 @@
 module "guacamole" {
   source = "../../"
 
-  guacadmin_password            = "gu4c4m0l3" # Hardcoded for testing only
-  public_subnets                = module.vpc.public_subnets
-  private_subnets               = module.vpc.private_subnets
-  use_http_only                 = true # Should set to false for any real deployment
-  enable_alb_logging            = true
-  enable_brute_force_protection = false
-  brute_force_allow_list        = ["1.2.3.4/32"]
+  guacadmin_password = "gu4c4m0l3" # Hardcoded for testing only
+  public_subnets     = module.vpc.public_subnets
+  private_subnets    = module.vpc.private_subnets
+  disable_database   = true
+  use_http_only      = true # Should set to false for any real deployment
+  enable_nlb_logging = true
+  cidr_allow_list    = ["1.2.3.4/32"]
 }
 
 output "module_outputs" {
