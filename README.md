@@ -64,6 +64,7 @@ This module has was developed and tested on MacOS Sequoia.
 | [aws_iam_role_policy_attachment.ecs_task_role_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.secret_access_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_lb.guacamole_lb](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb) | resource |
+| [aws_lb_listener.http](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener.https](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_target_group.guacamole_tg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_target_group) | resource |
 | [aws_rds_cluster.guacamole_db_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/rds_cluster) | resource |
@@ -113,6 +114,7 @@ This module has was developed and tested on MacOS Sequoia.
 | <a name="input_guacamole_task_environment_vars"></a> [guacamole\_task\_environment\_vars](#input\_guacamole\_task\_environment\_vars) | Environment variables to pass to Guacamole task (database environment variables are automatically passed). Should be list of dictionaries with keys `name` and `value`. | `list(map(string))` | `[]` | no |
 | <a name="input_guacamole_task_memory"></a> [guacamole\_task\_memory](#input\_guacamole\_task\_memory) | Amount of memory in MiB to allocate to Guacamole task. See https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html. | `number` | `2048` | no |
 | <a name="input_guacamole_task_security_groups"></a> [guacamole\_task\_security\_groups](#input\_guacamole\_task\_security\_groups) | IDs of security groups to attach to Guacamole ECS task. | `list(string)` | `[]` | no |
+| <a name="input_health_check_path"></a> [health\_check\_path](#input\_health\_check\_path) | Path to use for health check. | `string` | `"/guacamole/"` | no |
 | <a name="input_hosted_zone_name"></a> [hosted\_zone\_name](#input\_hosted\_zone\_name) | If provided, will create DNS record in this hosted zone for load balancer. Not used if `use_http_only` is true. | `string` | `""` | no |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | Log level for Guacamole. | `string` | `"info"` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | Subnets to place Fargate and Aurora in. | `list(string)` | n/a | yes |

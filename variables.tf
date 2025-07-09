@@ -152,3 +152,9 @@ variable "cidr_allow_list" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
 }
+
+variable "health_check_path" {
+  description = "Path to use for health check."
+  type        = string
+  default     = "/guacamole/"
+}

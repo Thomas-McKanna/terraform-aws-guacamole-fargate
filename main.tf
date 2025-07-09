@@ -580,7 +580,7 @@ resource "aws_lb_target_group" "guacamole_tg" {
   target_type = "ip"
 
   health_check {
-    path     = "/guacamole/"
+    path     = var.health_check_path
     port     = 8080
     protocol = "HTTP"
   }
